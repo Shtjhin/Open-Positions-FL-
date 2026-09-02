@@ -32,7 +32,7 @@ async function handleChangePassword() {
   try {
     await api('/api/me/password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) });
     document.getElementById('passwordModal').style.display = 'none';
-    alert('Password berhasil diganti.');
+    alert('Password changed successfully.');
   } catch (e) {
     errBox.innerHTML = `<div class="error-msg">${escapeHtml(e.message)}</div>`;
   }
@@ -47,14 +47,14 @@ async function loadJobs() {
   const wrap = document.getElementById('jobListWrap');
 
   if (!jobs.length) {
-    wrap.innerHTML = '<div class="empty-state">Belum ada job yang di-assign ke kamu.</div>';
+    wrap.innerHTML = '<div class="empty-state">No jobs have been assigned to you yet.</div>';
     return;
   }
 
   wrap.innerHTML = `
     <table>
       <thead>
-        <tr><th>Job Title</th><th>Industry</th><th>Placement</th><th>Status</th><th>Aksi</th></tr>
+        <tr><th>Job Title</th><th>Industry</th><th>Placement</th><th>Status</th><th>Actions</th></tr>
       </thead>
       <tbody>
         ${jobs.map((j) => `
@@ -86,36 +86,38 @@ async function openJobDetail(id) {
       <div class="detail-row"><div class="k">Position Type</div><div class="v">${escapeHtml(job.positionType || '-')}</div></div>
       <div class="detail-row"><div class="k">Placement</div><div class="v">${escapeHtml(job.placement || '-')}</div></div>
       <div class="detail-row"><div class="k">Office Hours</div><div class="v">${escapeHtml(job.officeHours || '-')}</div></div>
+      <div class="detail-row"><div class="k">Working Days</div><div class="v">${escapeHtml(job.workingDays || '-')}</div></div>
       <div class="detail-row"><div class="k">Travel Required</div><div class="v">${escapeHtml(job.travelRequired || '-')}</div></div>
-      <div class="detail-row"><div class="k">Salary Range</div><div class="v">${escapeHtml(job.salaryRange || '-')}</div></div>
+      <div class="detail-row"><div class="k">Salary Range</div><div class="v">${escapeHtml(job.salaryRange || '-')}${job.salaryType ? ` <span class="hint">(${escapeHtml(job.salaryType)})</span>` : ''}</div></div>
       <div class="detail-row"><div class="k">Industry</div><div class="v">${escapeHtml(job.industry)}</div></div>
     </div>
-    <div class="detail-row"><div class="k">Job Description</div><div class="v">${escapeHtml(job.jobDescription || '-')}</div></div>
-    <div class="detail-row"><div class="k">Job Requirements</div><div class="v">${escapeHtml(job.jobRequirements || '-')}</div></div>
-    <div class="detail-row"><div class="k">Preferred Skills</div><div class="v">${escapeHtml(job.preferredSkills || '-')}</div></div>
-    <div class="detail-row"><div class="k">Special Requirements</div><div class="v">${escapeHtml(job.specialRequirements || '-')}</div></div>
+    <div class="detail-row"><div class="k">Additional Notes</div><div class="v">${escapeHtml(job.additionalNotes || '-')}</div></div>
+    <div class="detail-row"><div class="k">Job Description</div>${renderBullets(job.jobDescription)}</div>
+    <div class="detail-row"><div class="k">Job Requirements</div>${renderBullets(job.jobRequirements)}</div>
+    <div class="detail-row"><div class="k">Preferred Skills</div>${renderBullets(job.preferredSkills)}</div>
+    <div class="detail-row"><div class="k">Special Requirements</div>${renderBullets(job.specialRequirements)}</div>
 
     <div class="field" style="margin-top:16px">
       <label>Status</label>
       <div class="status-toggle">
-        <button data-status="open" ${job.status === 'open' ? 'disabled' : ''}>Tandai Open</button>
-        <button data-status="closed" class="secondary" ${job.status === 'closed' ? 'disabled' : ''}>Tandai Closed</button>
+        <button data-status="open" ${job.status === 'open' ? 'disabled' : ''}>Mark Open</button>
+        <button data-status="closed" class="secondary" ${job.status === 'closed' ? 'disabled' : ''}>Mark Closed</button>
       </div>
     </div>
 
-    <h3>Catatan</h3>
+    <h3>Notes</h3>
     <div id="d_notes">
       ${notes.length ? notes.map((n) => `
         <div class="note-item">
           ${escapeHtml(n.note)}
           <div class="meta">${escapeHtml(n.author_name || '-')} &middot; ${fmtDate(n.created_at)}</div>
         </div>
-      `).join('') : '<div class="hint">Belum ada catatan.</div>'}
+      `).join('') : '<div class="hint">No notes yet.</div>'}
     </div>
     <div class="field" style="margin-top:10px">
-      <textarea id="d_newNote" placeholder="Tambah catatan/update progress..." rows="2"></textarea>
+      <textarea id="d_newNote" placeholder="Add a note or progress update..." rows="2"></textarea>
     </div>
-    <button class="secondary" id="d_addNoteBtn">Tambah Catatan</button>
+    <button class="secondary" id="d_addNoteBtn">Add Note</button>
   `;
 
   document.getElementById('detailBody').querySelectorAll('[data-status]').forEach((btn) => {
