@@ -26,6 +26,7 @@ const FIELD_DEFS = [
   { key: 'preferred_skills', labels: ['preferred skills', 'preferred skill'] },
   { key: 'special_requirements', labels: ['special requirements', 'special requirement'] },
   { key: 'salary_range', labels: ['salary range'] },
+  { key: 'additional_notes', labels: ['additional notes', 'additional note'] },
 ];
 
 const ALL_LABELS = FIELD_DEFS.flatMap((f) => f.labels);
@@ -153,6 +154,12 @@ function parseLines(lines) {
         .trim();
     }
   }
+
+  // Additional Notes is intentionally left blank after parsing — Sherly fills
+  // this one in manually for every job, so whatever the source file has under
+  // that label is discarded here (the label is still recognized above so it
+  // doesn't get swallowed into whatever field precedes it in the file).
+  result.additional_notes = '';
 
   return result;
 }
