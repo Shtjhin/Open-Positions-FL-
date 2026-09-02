@@ -62,14 +62,20 @@ app.use(
 );
 
 function requireAuth(req, res, next) {
-  if (!req.session.user) return res.status(401).json({ error: 'Belum login.' });
+  if (!req.session.user) return res.status(401).json({ error: 'Not logged in.' });
   next();
 }
 function requireAdmin(req, res, next) {
   if (!req.session.user || req.session.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Khusus admin.' });
+    return res.status(403).json({ error: 'Admin only.' });
   }
   next();
+}
+
+// A freelancer can see/act on a job if it was assigned to them directly, or
+// if it was broadcast to all freelancers.
+function freelancerCanAccess(job, userId) {
+  return job.assigned_to_all || job.assigned_to === userId;
 }
 
 function jobToClient(job, users) {
@@ -79,10 +85,10 @@ function jobToClient(job, users) {
     jobTitle: job.job_title,
     department: job.department,
     directReportTo: job.direct_report_to,
-    orgStructurePosition: job.org_structure_position,
     positionType: job.position_type,
     placement: job.placement,
     officeHours: job.office_hours,
+    workingDays: job.working_days,
     travelRequired: job.travel_required,
     industry: job.industry,
     industryConfidence: job.industry_confidence,
@@ -91,9 +97,12 @@ function jobToClient(job, users) {
     preferredSkills: job.preferred_skills,
     specialRequirements: job.special_requirements,
     salaryRange: job.salary_range,
+    salaryType: job.salary_type,
+    additionalNotes: job.additional_notes,
     status: job.status,
     assignedTo: job.assigned_to,
-    assignedToName: assignee ? assignee.name : null,
+    assignedToAll: job.assigned_to_all,
+    assignedToName: job.assigned_to_all ? 'All Freelancers' : (assignee ? assignee.name : null),
     sourceFilename: job.source_filename,
     createdAt: job.created_at,
     updatedAt: job.updated_at,
@@ -104,23 +113,23 @@ function jobToClient(job, users) {
 
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body || {};
-  if (!username || !password) return res.status(400).json({ error: 'Username & password wajib diisi.' });
+  if (!username || !password) return res.status(400).json({ error: 'Username & password are required.' });
 
   const { rows } = await pool.query('SELECT * FROM users WHERE username = $1 AND active = true', [username]);
   const user = rows[0];
-  if (!user) return res.status(401).json({ error: 'Username atau password salah.' });
+  if (!user) return res.status(401).json({ error: 'Incorrect username or password.' });
 
   const ok = await bcrypt.compare(password, user.password_hash);
-  if (!ok) return res.status(401).json({ error: 'Username atau password salah.' });
+  if (!ok) return res.status(401).json({ error: 'Incorrect username or password.' });
 
   req.session.user = { id: user.id, name: user.name, role: user.role, username: user.username };
 
-  // Catat riwayat login (buat admin liat siapa aja yang login). Kalau gagal
-  // dicatat, jangan sampai bikin proses login-nya sendiri gagal.
+  // Record login history (so admin can see who logged in). If this fails,
+  // don't let it break the login itself.
   pool.query(
     'INSERT INTO login_history (user_id, username, name, role, ip_address, user_agent) VALUES ($1,$2,$3,$4,$5,$6)',
     [user.id, user.username, user.name, user.role, req.ip || null, (req.get('user-agent') || '').slice(0, 255)]
-  ).catch((e) => console.error('Gagal mencatat login_history:', e));
+  ).catch((e) => console.error('Failed to record login_history:', e));
 
   res.json({ user: req.session.user });
 });
@@ -130,33 +139,33 @@ app.post('/api/logout', (req, res) => {
 });
 
 app.get('/api/me', (req, res) => {
-  if (!req.session.user) return res.status(401).json({ error: 'Belum login.' });
+  if (!req.session.user) return res.status(401).json({ error: 'Not logged in.' });
   res.json({ user: req.session.user });
 });
 
-// Ganti password sendiri — bisa dipakai admin maupun freelancer.
+// Change your own password — usable by both admin and freelancer.
 app.post('/api/me/password', requireAuth, async (req, res) => {
   const { currentPassword, newPassword } = req.body || {};
   if (!currentPassword || !newPassword) {
-    return res.status(400).json({ error: 'Password lama & password baru wajib diisi.' });
+    return res.status(400).json({ error: 'Current password & new password are required.' });
   }
   if (newPassword.length < 6) {
-    return res.status(400).json({ error: 'Password baru minimal 6 karakter.' });
+    return res.status(400).json({ error: 'New password must be at least 6 characters.' });
   }
 
   const { rows } = await pool.query('SELECT * FROM users WHERE id = $1', [req.session.user.id]);
   const user = rows[0];
-  if (!user) return res.status(404).json({ error: 'User tidak ditemukan.' });
+  if (!user) return res.status(404).json({ error: 'User not found.' });
 
   const ok = await bcrypt.compare(currentPassword, user.password_hash);
-  if (!ok) return res.status(401).json({ error: 'Password lama salah.' });
+  if (!ok) return res.status(401).json({ error: 'Current password is incorrect.' });
 
   const hash = await bcrypt.hash(newPassword, 10);
   await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, user.id]);
   res.json({ ok: true });
 });
 
-// Riwayat login (admin only) — buat lihat siapa aja yang login & kapan.
+// Login history (admin only) — see who logged in and when.
 app.get('/api/login-history', requireAdmin, async (req, res) => {
   const { rows } = await pool.query(
     'SELECT id, username, name, role, ip_address, user_agent, logged_in_at FROM login_history ORDER BY logged_in_at DESC LIMIT 200'
@@ -176,10 +185,10 @@ app.get('/api/users', requireAuth, async (req, res) => {
 app.post('/api/users', requireAdmin, async (req, res) => {
   const { username, password, name, email } = req.body || {};
   if (!username || !password || !name || !email) {
-    return res.status(400).json({ error: 'Username, password, nama, dan email wajib diisi.' });
+    return res.status(400).json({ error: 'Username, password, name, and email are required.' });
   }
   if (!/^\S+@\S+\.\S+$/.test(email)) {
-    return res.status(400).json({ error: 'Format email tidak valid.' });
+    return res.status(400).json({ error: 'Invalid email format.' });
   }
   const hash = await bcrypt.hash(password, 10);
   try {
@@ -191,7 +200,7 @@ app.post('/api/users', requireAdmin, async (req, res) => {
   } catch (e) {
     if (e.code === '23505') {
       const isEmail = (e.constraint || '').includes('email');
-      return res.status(409).json({ error: isEmail ? 'Email ini sudah dipakai user lain.' : 'Username sudah dipakai.' });
+      return res.status(409).json({ error: isEmail ? 'This email is already used by another user.' : 'Username is already taken.' });
     }
     throw e;
   }
@@ -207,19 +216,19 @@ app.patch('/api/users/:id', requireAdmin, async (req, res) => {
   if (typeof active === 'boolean') { updates.push(`active = $${i++}`); values.push(active); }
   if (name) { updates.push(`name = $${i++}`); values.push(name); }
   if (email) {
-    if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: 'Format email tidak valid.' });
+    if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: 'Invalid email format.' });
     updates.push(`email = $${i++}`); values.push(email.trim().toLowerCase());
   }
   if (password) { updates.push(`password_hash = $${i++}`); values.push(await bcrypt.hash(password, 10)); }
 
-  if (!updates.length) return res.status(400).json({ error: 'Tidak ada perubahan.' });
+  if (!updates.length) return res.status(400).json({ error: 'No changes given.' });
 
   values.push(id);
   try {
     await pool.query(`UPDATE users SET ${updates.join(', ')} WHERE id = $${i}`, values);
     res.json({ ok: true });
   } catch (e) {
-    if (e.code === '23505') return res.status(409).json({ error: 'Email ini sudah dipakai user lain.' });
+    if (e.code === '23505') return res.status(409).json({ error: 'This email is already used by another user.' });
     throw e;
   }
 });
@@ -228,7 +237,7 @@ app.patch('/api/users/:id', requireAdmin, async (req, res) => {
 
 // Upload + parse file (preview saja, belum tersimpan ke database)
 app.post('/api/jobs/parse', requireAdmin, upload.single('file'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'File tidak ditemukan.' });
+  if (!req.file) return res.status(400).json({ error: 'No file found.' });
 
   try {
     const fields = await parseJobFile(req.file.buffer, req.file.originalname);
@@ -245,16 +254,18 @@ app.post('/api/jobs/parse', requireAdmin, upload.single('file'), async (req, res
         jobTitle: fields.job_title,
         department: fields.department,
         directReportTo: fields.direct_report_to,
-        orgStructurePosition: fields.org_structure_position,
         positionType: fields.position_type,
         placement: fields.placement,
         officeHours: fields.office_hours,
+        workingDays: fields.working_days,
         travelRequired: fields.travel_required,
         jobDescription: fields.job_description,
         jobRequirements: fields.job_requirements,
         preferredSkills: fields.preferred_skills,
         specialRequirements: fields.special_requirements,
         salaryRange: fields.salary_range,
+        salaryType: fields.salary_type,
+        additionalNotes: fields.additional_notes,
       },
       industry,
       industryConfidence: confidence,
@@ -262,26 +273,30 @@ app.post('/api/jobs/parse', requireAdmin, upload.single('file'), async (req, res
     });
   } catch (e) {
     console.error(e);
-    res.status(400).json({ error: e.message || 'Gagal membaca file.' });
+    res.status(400).json({ error: e.message || 'Failed to read the file.' });
   }
 });
 
 app.post('/api/jobs', requireAdmin, async (req, res) => {
   const f = req.body || {};
+  const assignedToAll = !!f.assignedToAll;
   const { rows } = await pool.query(
     `INSERT INTO jobs (
-      job_title, department, direct_report_to, org_structure_position, position_type,
-      placement, office_hours, travel_required, industry, industry_confidence,
+      job_title, department, direct_report_to, position_type,
+      placement, office_hours, working_days, travel_required, industry, industry_confidence,
       job_description, job_requirements, preferred_skills, special_requirements,
-      salary_range, status, assigned_to, source_filename, created_by
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+      salary_range, salary_type, additional_notes, status, assigned_to, assigned_to_all,
+      source_filename, created_by
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
     RETURNING *`,
     [
-      f.jobTitle || '', f.department || '', f.directReportTo || '', f.orgStructurePosition || '',
-      f.positionType || '', f.placement || '', f.officeHours || '', f.travelRequired || '',
-      f.industry || 'Belum Teridentifikasi', f.industryConfidence || 'low',
+      f.jobTitle || '', f.department || '', f.directReportTo || '',
+      f.positionType || '', f.placement || '', f.officeHours || '', f.workingDays || '', f.travelRequired || '',
+      f.industry || 'Not Identified', f.industryConfidence || 'low',
       f.jobDescription || '', f.jobRequirements || '', f.preferredSkills || '', f.specialRequirements || '',
-      f.salaryRange || '', f.status || 'open', f.assignedTo || null, f.sourceFilename || null,
+      f.salaryRange || '', f.salaryType || '', f.additionalNotes || '',
+      f.status || 'open', assignedToAll ? null : (f.assignedTo || null), assignedToAll,
+      f.sourceFilename || null,
       req.session.user.id,
     ]
   );
@@ -296,8 +311,10 @@ app.get('/api/jobs', requireAuth, async (req, res) => {
   let i = 1;
 
   if (req.session.user.role === 'freelancer') {
-    clauses.push(`assigned_to = $${i++}`);
+    clauses.push(`(assigned_to = $${i++} OR assigned_to_all = true)`);
     values.push(req.session.user.id);
+  } else if (assignedTo === 'ALL_BROADCAST') {
+    clauses.push('assigned_to_all = true');
   } else if (assignedTo) {
     clauses.push(`assigned_to = $${i++}`);
     values.push(assignedTo);
@@ -314,9 +331,9 @@ app.get('/api/jobs', requireAuth, async (req, res) => {
 app.get('/api/jobs/:id', requireAuth, async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM jobs WHERE id = $1', [req.params.id]);
   const job = rows[0];
-  if (!job) return res.status(404).json({ error: 'Job tidak ditemukan.' });
-  if (req.session.user.role === 'freelancer' && job.assigned_to !== req.session.user.id) {
-    return res.status(403).json({ error: 'Job ini bukan untuk kamu.' });
+  if (!job) return res.status(404).json({ error: 'Job not found.' });
+  if (req.session.user.role === 'freelancer' && !freelancerCanAccess(job, req.session.user.id)) {
+    return res.status(403).json({ error: 'This job is not assigned to you.' });
   }
   const { rows: users } = await pool.query('SELECT id, name FROM users');
   const { rows: notes } = await pool.query(
@@ -331,26 +348,28 @@ app.get('/api/jobs/:id', requireAuth, async (req, res) => {
 app.patch('/api/jobs/:id', requireAuth, async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM jobs WHERE id = $1', [req.params.id]);
   const job = rows[0];
-  if (!job) return res.status(404).json({ error: 'Job tidak ditemukan.' });
+  if (!job) return res.status(404).json({ error: 'Job not found.' });
 
   const isAdmin = req.session.user.role === 'admin';
-  const isOwnerFreelancer = job.assigned_to === req.session.user.id;
-  if (!isAdmin && !isOwnerFreelancer) return res.status(403).json({ error: 'Tidak punya akses.' });
+  if (!isAdmin && !freelancerCanAccess(job, req.session.user.id)) {
+    return res.status(403).json({ error: 'You do not have access to this job.' });
+  }
 
   const body = req.body || {};
   const updates = [];
   const values = [];
   let i = 1;
 
-  // Freelancer cuma boleh ubah status. Admin boleh ubah semua field.
+  // A freelancer may only change the status. Admin may change any field.
   const allowedForFreelancer = ['status'];
   const fieldMap = {
     jobTitle: 'job_title', department: 'department', directReportTo: 'direct_report_to',
-    orgStructurePosition: 'org_structure_position', positionType: 'position_type', placement: 'placement',
-    officeHours: 'office_hours', travelRequired: 'travel_required', industry: 'industry',
+    positionType: 'position_type', placement: 'placement',
+    officeHours: 'office_hours', workingDays: 'working_days', travelRequired: 'travel_required', industry: 'industry',
     jobDescription: 'job_description', jobRequirements: 'job_requirements', preferredSkills: 'preferred_skills',
-    specialRequirements: 'special_requirements', salaryRange: 'salary_range', status: 'status',
-    assignedTo: 'assigned_to',
+    specialRequirements: 'special_requirements', salaryRange: 'salary_range', salaryType: 'salary_type',
+    additionalNotes: 'additional_notes', status: 'status',
+    assignedTo: 'assigned_to', assignedToAll: 'assigned_to_all',
   };
 
   for (const [clientKey, column] of Object.entries(fieldMap)) {
@@ -361,7 +380,14 @@ app.patch('/api/jobs/:id', requireAuth, async (req, res) => {
     values.push(body[clientKey]);
   }
 
-  if (!updates.length) return res.status(400).json({ error: 'Tidak ada perubahan valid.' });
+  // Assigning to "all freelancers" and assigning to one specific freelancer
+  // are mutually exclusive — keep the two columns in sync.
+  if (isAdmin && 'assignedToAll' in body && body.assignedToAll) {
+    updates.push(`assigned_to = $${i++}`);
+    values.push(null);
+  }
+
+  if (!updates.length) return res.status(400).json({ error: 'No valid changes given.' });
 
   updates.push(`updated_at = now()`);
   values.push(req.params.id);
@@ -380,13 +406,13 @@ app.delete('/api/jobs/:id', requireAdmin, async (req, res) => {
 
 app.post('/api/jobs/:id/notes', requireAuth, async (req, res) => {
   const { note } = req.body || {};
-  if (!note || !note.trim()) return res.status(400).json({ error: 'Catatan kosong.' });
+  if (!note || !note.trim()) return res.status(400).json({ error: 'Note is empty.' });
 
   const { rows } = await pool.query('SELECT * FROM jobs WHERE id = $1', [req.params.id]);
   const job = rows[0];
-  if (!job) return res.status(404).json({ error: 'Job tidak ditemukan.' });
-  if (req.session.user.role === 'freelancer' && job.assigned_to !== req.session.user.id) {
-    return res.status(403).json({ error: 'Tidak punya akses.' });
+  if (!job) return res.status(404).json({ error: 'Job not found.' });
+  if (req.session.user.role === 'freelancer' && !freelancerCanAccess(job, req.session.user.id)) {
+    return res.status(403).json({ error: 'You do not have access to this job.' });
   }
 
   const { rows: inserted } = await pool.query(
@@ -396,11 +422,11 @@ app.post('/api/jobs/:id/notes', requireAuth, async (req, res) => {
   res.status(201).json({ note: { ...inserted[0], author_name: req.session.user.name } });
 });
 
-app.use('/api', (req, res) => res.status(404).json({ error: 'Endpoint tidak ditemukan.' }));
+app.use('/api', (req, res) => res.status(404).json({ error: 'Endpoint not found.' }));
 
 app.use((err, req, res, next) => {
   console.error(err);
-  res.status(500).json({ error: 'Terjadi kesalahan di server.' });
+  res.status(500).json({ error: 'A server error occurred.' });
 });
 
 module.exports = app;
