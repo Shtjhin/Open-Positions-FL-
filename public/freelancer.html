@@ -3,14 +3,15 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Job Saya - Job Platform</title>
+<title>Job Saya - Midas Talent Match</title>
 <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
 <div class="topbar">
-  <h1>Job Platform</h1>
+  <h1>Midas Talent Match</h1>
   <div class="who">
     <span id="whoami"></span>
+    <button class="secondary" id="changePasswordBtn">Ganti Password</button>
     <button class="secondary" id="logoutBtn">Logout</button>
   </div>
 </div>
@@ -36,6 +37,26 @@
       <button class="close-x" id="closeDetailBtn">&times;</button>
     </div>
     <div id="detailBody"></div>
+  </div>
+</div>
+
+<!-- Modal ganti password -->
+<div class="modal-overlay" id="passwordModal" style="display:none">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h2>Ganti Password</h2>
+      <button class="close-x" id="closePasswordModalBtn">&times;</button>
+    </div>
+    <div id="passwordErr"></div>
+    <div class="field">
+      <label>Password Lama</label>
+      <input id="pw_current" type="password" />
+    </div>
+    <div class="field">
+      <label>Password Baru (min. 6 karakter)</label>
+      <input id="pw_new" type="password" />
+    </div>
+    <button id="pw_saveBtn">Simpan Password</button>
   </div>
 </div>
 
