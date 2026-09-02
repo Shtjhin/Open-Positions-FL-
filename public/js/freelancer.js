@@ -10,7 +10,32 @@ async function init() {
   document.getElementById('filterStatus').onchange = loadJobs;
   document.getElementById('closeDetailBtn').onclick = () => { document.getElementById('detailModal').style.display = 'none'; };
 
+  document.getElementById('changePasswordBtn').onclick = openPasswordModal;
+  document.getElementById('closePasswordModalBtn').onclick = () => { document.getElementById('passwordModal').style.display = 'none'; };
+  document.getElementById('pw_saveBtn').onclick = handleChangePassword;
+
   await loadJobs();
+}
+
+function openPasswordModal() {
+  document.getElementById('passwordErr').innerHTML = '';
+  document.getElementById('pw_current').value = '';
+  document.getElementById('pw_new').value = '';
+  document.getElementById('passwordModal').style.display = 'flex';
+}
+
+async function handleChangePassword() {
+  const errBox = document.getElementById('passwordErr');
+  errBox.innerHTML = '';
+  const currentPassword = document.getElementById('pw_current').value;
+  const newPassword = document.getElementById('pw_new').value;
+  try {
+    await api('/api/me/password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) });
+    document.getElementById('passwordModal').style.display = 'none';
+    alert('Password berhasil diganti.');
+  } catch (e) {
+    errBox.innerHTML = `<div class="error-msg">${escapeHtml(e.message)}</div>`;
+  }
 }
 
 async function loadJobs() {

@@ -45,11 +45,61 @@ async function init() {
 
   document.getElementById('addFreelancerBtn').onclick = handleAddFreelancer;
   document.getElementById('closeDetailBtn').onclick = () => { document.getElementById('detailModal').style.display = 'none'; };
+
+  document.getElementById('changePasswordBtn').onclick = openPasswordModal;
+  document.getElementById('closePasswordModalBtn').onclick = () => { document.getElementById('passwordModal').style.display = 'none'; };
+  document.getElementById('pw_saveBtn').onclick = handleChangePassword;
+}
+
+function openPasswordModal() {
+  document.getElementById('passwordErr').innerHTML = '';
+  document.getElementById('pw_current').value = '';
+  document.getElementById('pw_new').value = '';
+  document.getElementById('passwordModal').style.display = 'flex';
+}
+
+async function handleChangePassword() {
+  const errBox = document.getElementById('passwordErr');
+  errBox.innerHTML = '';
+  const currentPassword = document.getElementById('pw_current').value;
+  const newPassword = document.getElementById('pw_new').value;
+  try {
+    await api('/api/me/password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) });
+    document.getElementById('passwordModal').style.display = 'none';
+    alert('Password berhasil diganti.');
+  } catch (e) {
+    errBox.innerHTML = `<div class="error-msg">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function loadLoginHistory() {
+  const { history } = await api('/api/login-history');
+  const wrap = document.getElementById('historyListWrap');
+  if (!history.length) {
+    wrap.innerHTML = '<div class="empty-state">Belum ada riwayat login.</div>';
+    return;
+  }
+  wrap.innerHTML = `
+    <table>
+      <thead><tr><th>Nama</th><th>Role</th><th>Waktu Login</th><th>IP Address</th></tr></thead>
+      <tbody>
+        ${history.map((h) => `
+          <tr>
+            <td>${escapeHtml(h.name)} <span class="hint">(${escapeHtml(h.username)})</span></td>
+            <td>${h.role === 'admin' ? 'Admin' : 'Freelancer'}</td>
+            <td>${new Date(h.logged_in_at).toLocaleString('id-ID')}</td>
+            <td>${escapeHtml(h.ip_address || '-')}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
 }
 
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === `tab-${tab}`));
+  if (tab === 'history') loadLoginHistory();
 }
 
 // ---------- FREELANCERS ----------
@@ -73,11 +123,12 @@ async function loadFreelancers() {
   }
   wrap.innerHTML = `
     <table>
-      <thead><tr><th>Nama</th><th>Username</th><th>Status</th><th>Dibuat</th><th>Aksi</th></tr></thead>
+      <thead><tr><th>Nama</th><th>Email</th><th>Username</th><th>Status</th><th>Dibuat</th><th>Aksi</th></tr></thead>
       <tbody>
         ${users.map((u) => `
           <tr>
             <td>${escapeHtml(u.name)}</td>
+            <td>${escapeHtml(u.email || '-')}</td>
             <td>${escapeHtml(u.username)}</td>
             <td><span class="badge ${u.active ? 'open' : 'closed'}">${u.active ? 'Aktif' : 'Nonaktif'}</span></td>
             <td>${fmtDate(u.created_at)}</td>
@@ -111,15 +162,17 @@ async function handleAddFreelancer() {
   const errBox = document.getElementById('userErr');
   errBox.innerHTML = '';
   const name = document.getElementById('nf_name').value.trim();
+  const email = document.getElementById('nf_email').value.trim();
   const username = document.getElementById('nf_username').value.trim();
   const password = document.getElementById('nf_password').value.trim();
-  if (!name || !username || !password) {
-    errBox.innerHTML = '<div class="error-msg">Nama, username, dan password wajib diisi.</div>';
+  if (!name || !email || !username || !password) {
+    errBox.innerHTML = '<div class="error-msg">Nama, email, username, dan password wajib diisi.</div>';
     return;
   }
   try {
-    await api('/api/users', { method: 'POST', body: JSON.stringify({ name, username, password }) });
+    await api('/api/users', { method: 'POST', body: JSON.stringify({ name, email, username, password }) });
     document.getElementById('nf_name').value = '';
+    document.getElementById('nf_email').value = '';
     document.getElementById('nf_username').value = '';
     document.getElementById('nf_password').value = '';
     await loadFreelancers();
