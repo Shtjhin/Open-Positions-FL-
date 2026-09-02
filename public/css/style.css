@@ -47,6 +47,12 @@ a { color: var(--gold-light); }
   text-transform: uppercase;
 }
 
+.topbar-logo {
+  height: 32px;
+  width: auto;
+  display: block;
+}
+
 .topbar .who {
   display: flex;
   align-items: center;
@@ -297,19 +303,11 @@ tr:hover td { background: var(--card-alt); }
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  margin-bottom: 6px;
+  margin-bottom: 10px;
 }
-.login-card .brand-mark svg { width: 34px; height: 34px; }
-.login-card h1 {
-  font-size: 20px;
-  margin: 0 0 4px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  background: linear-gradient(135deg, var(--gold-light), var(--gold));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+.login-card .brand-mark img {
+  max-width: 100%;
+  height: auto;
 }
 .login-card .tagline {
   font-size: 12px;
@@ -328,4 +326,45 @@ tr:hover td { background: var(--card-alt); }
 .confidence-note {
   font-size: 12px;
   margin-top: 4px;
+}
+
+.input-row {
+  display: flex;
+  gap: 8px;
+}
+.input-row input { flex: 1; min-width: 0; }
+.input-row select { width: 110px; flex-shrink: 0; }
+
+.radio-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 13px;
+  color: var(--text);
+}
+.radio-row label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text);
+  margin-bottom: 0;
+  cursor: pointer;
+}
+.radio-row input[type="radio"] {
+  width: auto;
+  accent-color: var(--gold);
+}
+
+.bullet-list {
+  margin: 2px 0 0;
+  padding-left: 18px;
+  font-size: 14px;
+}
+.bullet-list li {
+  margin-bottom: 4px;
+}
+.bullet-list li:last-child {
+  margin-bottom: 0;
 }
