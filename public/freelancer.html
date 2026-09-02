@@ -1,17 +1,17 @@
 <!doctype html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Job Saya - Midas Talent Match</title>
+<title>My Jobs - Midas Talent Match</title>
 <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
 <div class="topbar">
-  <h1>Midas Talent Match</h1>
+  <img class="topbar-logo" src="/img/logo-full.png" alt="Midas Talent Match" />
   <div class="who">
     <span id="whoami"></span>
-    <button class="secondary" id="changePasswordBtn">Ganti Password</button>
+    <button class="secondary" id="changePasswordBtn">Change Password</button>
     <button class="secondary" id="logoutBtn">Logout</button>
   </div>
 </div>
@@ -20,7 +20,7 @@
   <div class="card">
     <div class="filters">
       <select id="filterStatus">
-        <option value="">Semua Status</option>
+        <option value="">All Statuses</option>
         <option value="open">Open</option>
         <option value="closed">Closed</option>
       </select>
@@ -40,23 +40,23 @@
   </div>
 </div>
 
-<!-- Modal ganti password -->
+<!-- Change password modal -->
 <div class="modal-overlay" id="passwordModal" style="display:none">
   <div class="modal" style="max-width:420px">
     <div class="modal-header">
-      <h2>Ganti Password</h2>
+      <h2>Change Password</h2>
       <button class="close-x" id="closePasswordModalBtn">&times;</button>
     </div>
     <div id="passwordErr"></div>
     <div class="field">
-      <label>Password Lama</label>
+      <label>Current Password</label>
       <input id="pw_current" type="password" />
     </div>
     <div class="field">
-      <label>Password Baru (min. 6 karakter)</label>
+      <label>New Password (min. 6 characters)</label>
       <input id="pw_new" type="password" />
     </div>
-    <button id="pw_saveBtn">Simpan Password</button>
+    <button id="pw_saveBtn">Save Password</button>
   </div>
 </div>
 

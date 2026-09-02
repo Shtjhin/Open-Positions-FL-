@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -8,20 +8,20 @@
 </head>
 <body>
 <div class="topbar">
-  <h1>Midas Talent Match</h1>
+  <img class="topbar-logo" src="/img/logo-full.png" alt="Midas Talent Match" />
   <div class="who">
     <span id="whoami"></span>
-    <button class="secondary" id="changePasswordBtn">Ganti Password</button>
+    <button class="secondary" id="changePasswordBtn">Change Password</button>
     <button class="secondary" id="logoutBtn">Logout</button>
   </div>
 </div>
 
 <div class="container">
   <div class="tabs">
-    <button class="tab-btn active" data-tab="list">Daftar Job</button>
-    <button class="tab-btn" data-tab="upload">Upload Job Baru</button>
-    <button class="tab-btn" data-tab="freelancers">Kelola Freelancer</button>
-    <button class="tab-btn" data-tab="history">Riwayat Login</button>
+    <button class="tab-btn active" data-tab="list">Job List</button>
+    <button class="tab-btn" data-tab="upload">Upload New Job</button>
+    <button class="tab-btn" data-tab="freelancers">Manage Freelancers</button>
+    <button class="tab-btn" data-tab="history">Login History</button>
   </div>
 
   <!-- TAB: LIST -->
@@ -29,15 +29,15 @@
     <div class="card">
       <div class="filters">
         <select id="filterStatus">
-          <option value="">Semua Status</option>
+          <option value="">All Statuses</option>
           <option value="open">Open</option>
           <option value="closed">Closed</option>
         </select>
         <select id="filterAssignee">
-          <option value="">Semua Freelancer</option>
+          <option value="">All Freelancers</option>
         </select>
         <select id="filterIndustry">
-          <option value="">Semua Industri</option>
+          <option value="">All Industries</option>
         </select>
         <button class="secondary" id="refreshBtn">Refresh</button>
       </div>
@@ -49,7 +49,7 @@
   <div class="tab-panel" id="tab-upload">
     <div class="card">
       <h3 style="margin-top:0">1. Upload Job Profile Form</h3>
-      <p class="hint">Format yang didukung: .xlsx dan .pdf, dari template Job Profile Form yang biasa kamu pakai.</p>
+      <p class="hint">Supported formats: .xlsx and .pdf, using the Job Profile Form template you normally use.</p>
       <div id="uploadErr"></div>
       <input type="file" id="fileInput" accept=".xlsx,.xls,.pdf" />
       <div style="margin-top:12px">
@@ -59,8 +59,8 @@
     </div>
 
     <div class="card" id="previewCard" style="display:none">
-      <h3 style="margin-top:0">2. Review &amp; Lengkapi Data</h3>
-      <p class="hint">Data di bawah hasil auto-extract dari file. Cek dan edit kalau ada yang kurang pas sebelum disimpan.</p>
+      <h3 style="margin-top:0">2. Review &amp; Complete the Data</h3>
+      <p class="hint">The data below was auto-extracted from the file. Check and edit anything that's off before saving.</p>
 
       <div class="grid-2">
         <div class="field">
@@ -74,10 +74,6 @@
         <div class="field">
           <label>Direct Report To</label>
           <input id="f_directReportTo" />
-        </div>
-        <div class="field">
-          <label>Position in Org. Structure Chart</label>
-          <input id="f_orgStructurePosition" />
         </div>
         <div class="field">
           <label>Position Type</label>
@@ -97,6 +93,10 @@
           <input id="f_officeHours" />
         </div>
         <div class="field">
+          <label>Working Days</label>
+          <input id="f_workingDays" placeholder="e.g. Monday - Friday" />
+        </div>
+        <div class="field">
           <label>Travel Required</label>
           <select id="f_travelRequired">
             <option value="Yes">Yes</option>
@@ -105,39 +105,54 @@
         </div>
         <div class="field">
           <label>Salary Range</label>
-          <input id="f_salaryRange" />
+          <div class="input-row">
+            <input id="f_salaryRange" placeholder="e.g. Rp 15,000,000 - Rp 20,000,000" />
+            <select id="f_salaryType">
+              <option value="">Type</option>
+              <option value="Nett">Nett</option>
+              <option value="Gross">Gross</option>
+            </select>
+          </div>
         </div>
         <div class="field">
-          <label>Industry (auto-detect, bisa diedit)</label>
+          <label>Industry (auto-detected, editable)</label>
           <select id="f_industry"></select>
           <div class="confidence-note" id="confidenceNote"></div>
         </div>
       </div>
 
       <div class="field">
+        <label>Additional Notes</label>
+        <textarea id="f_additionalNotes" rows="3" placeholder="Anything else worth noting, kept separate from the salary range"></textarea>
+      </div>
+
+      <div class="field">
         <label>Job Descriptions</label>
-        <textarea id="f_jobDescription" rows="6"></textarea>
+        <textarea id="f_jobDescription" rows="6" placeholder="One point per line"></textarea>
       </div>
       <div class="field">
         <label>Job Requirements</label>
-        <textarea id="f_jobRequirements" rows="5"></textarea>
+        <textarea id="f_jobRequirements" rows="5" placeholder="One point per line"></textarea>
       </div>
       <div class="field">
         <label>Preferred Skills</label>
-        <textarea id="f_preferredSkills" rows="4"></textarea>
+        <textarea id="f_preferredSkills" rows="4" placeholder="One point per line"></textarea>
       </div>
       <div class="field">
         <label>Special Requirements</label>
-        <textarea id="f_specialRequirements" rows="4"></textarea>
+        <textarea id="f_specialRequirements" rows="4" placeholder="One point per line"></textarea>
       </div>
 
       <h3>3. Assign &amp; Status</h3>
       <div class="grid-2">
         <div class="field">
-          <label>Assign ke Freelancer</label>
-          <select id="f_assignedTo">
-            <option value="">Belum di-assign</option>
-          </select>
+          <label>Assign To</label>
+          <div class="radio-row">
+            <label><input type="radio" name="f_assignMode" value="none" checked /> Not assigned yet</label>
+            <label><input type="radio" name="f_assignMode" value="all" /> All Freelancers</label>
+            <label><input type="radio" name="f_assignMode" value="selected" /> Selected Freelancer</label>
+          </div>
+          <select id="f_assignedTo" style="margin-top:8px; display:none"></select>
         </div>
         <div class="field">
           <label>Status</label>
@@ -148,19 +163,19 @@
         </div>
       </div>
 
-      <button id="saveJobBtn">Simpan Job</button>
-      <button class="secondary" id="cancelUploadBtn">Batal</button>
+      <button id="saveJobBtn">Save Job</button>
+      <button class="secondary" id="cancelUploadBtn">Cancel</button>
     </div>
   </div>
 
   <!-- TAB: FREELANCERS -->
   <div class="tab-panel" id="tab-freelancers">
     <div class="card">
-      <h3 style="margin-top:0">Tambah Freelancer Baru</h3>
+      <h3 style="margin-top:0">Add New Freelancer</h3>
       <div id="userErr"></div>
       <div class="grid-3">
         <div class="field">
-          <label>Nama</label>
+          <label>Name</label>
           <input id="nf_name" />
         </div>
         <div class="field">
@@ -176,12 +191,12 @@
           <input id="nf_password" type="text" />
         </div>
       </div>
-      <button id="addFreelancerBtn">Tambah Freelancer</button>
-      <p class="hint">Satu email cuma bisa dipakai untuk satu akun freelancer.</p>
+      <button id="addFreelancerBtn">Add Freelancer</button>
+      <p class="hint">Each email can only be used for one freelancer account.</p>
     </div>
 
     <div class="card">
-      <h3 style="margin-top:0">Daftar Freelancer</h3>
+      <h3 style="margin-top:0">Freelancer List</h3>
       <div id="freelancerListWrap"></div>
     </div>
   </div>
@@ -189,14 +204,14 @@
   <!-- TAB: LOGIN HISTORY -->
   <div class="tab-panel" id="tab-history">
     <div class="card">
-      <h3 style="margin-top:0">Riwayat Login</h3>
-      <p class="hint">Menampilkan 200 aktivitas login terakhir (admin &amp; freelancer).</p>
+      <h3 style="margin-top:0">Login History</h3>
+      <p class="hint">Showing the last 200 login activities (admin &amp; freelancers).</p>
       <div id="historyListWrap"></div>
     </div>
   </div>
 </div>
 
-<!-- Modal detail job -->
+<!-- Job detail modal -->
 <div class="modal-overlay" id="detailModal" style="display:none">
   <div class="modal">
     <div class="modal-header">
@@ -207,23 +222,23 @@
   </div>
 </div>
 
-<!-- Modal ganti password -->
+<!-- Change password modal -->
 <div class="modal-overlay" id="passwordModal" style="display:none">
   <div class="modal" style="max-width:420px">
     <div class="modal-header">
-      <h2>Ganti Password</h2>
+      <h2>Change Password</h2>
       <button class="close-x" id="closePasswordModalBtn">&times;</button>
     </div>
     <div id="passwordErr"></div>
     <div class="field">
-      <label>Password Lama</label>
+      <label>Current Password</label>
       <input id="pw_current" type="password" />
     </div>
     <div class="field">
-      <label>Password Baru (min. 6 karakter)</label>
+      <label>New Password (min. 6 characters)</label>
       <input id="pw_new" type="password" />
     </div>
-    <button id="pw_saveBtn">Simpan Password</button>
+    <button id="pw_saveBtn">Save Password</button>
   </div>
 </div>
 
