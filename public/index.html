@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<title>Job Platform</title>
+</head>
+<body>
+<script>
+  fetch('/api/me', { credentials: 'same-origin' })
+    .then((r) => (r.ok ? r.json() : Promise.reject()))
+    .then(({ user }) => {
+      window.location.replace(user.role === 'admin' ? '/admin.html' : '/freelancer.html');
+    })
+    .catch(() => window.location.replace('/login.html'));
+</script>
+</body>
+</html>

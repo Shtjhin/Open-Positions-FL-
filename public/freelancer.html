@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Job Saya - Job Platform</title>
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<div class="topbar">
+  <h1>Job Platform</h1>
+  <div class="who">
+    <span id="whoami"></span>
+    <button class="secondary" id="logoutBtn">Logout</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="card">
+    <div class="filters">
+      <select id="filterStatus">
+        <option value="">Semua Status</option>
+        <option value="open">Open</option>
+        <option value="closed">Closed</option>
+      </select>
+      <button class="secondary" id="refreshBtn">Refresh</button>
+    </div>
+    <div id="jobListWrap"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="detailModal" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="detailTitle"></h2>
+      <button class="close-x" id="closeDetailBtn">&times;</button>
+    </div>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/freelancer.js"></script>
+</body>
+</html>

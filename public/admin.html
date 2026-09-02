@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Admin - Job Platform</title>
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<div class="topbar">
+  <h1>Job Platform</h1>
+  <div class="who">
+    <span id="whoami"></span>
+    <button class="secondary" id="logoutBtn">Logout</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="list">Daftar Job</button>
+    <button class="tab-btn" data-tab="upload">Upload Job Baru</button>
+    <button class="tab-btn" data-tab="freelancers">Kelola Freelancer</button>
+  </div>
+
+  <!-- TAB: LIST -->
+  <div class="tab-panel active" id="tab-list">
+    <div class="card">
+      <div class="filters">
+        <select id="filterStatus">
+          <option value="">Semua Status</option>
+          <option value="open">Open</option>
+          <option value="closed">Closed</option>
+        </select>
+        <select id="filterAssignee">
+          <option value="">Semua Freelancer</option>
+        </select>
+        <select id="filterIndustry">
+          <option value="">Semua Industri</option>
+        </select>
+        <button class="secondary" id="refreshBtn">Refresh</button>
+      </div>
+      <div id="jobListWrap"></div>
+    </div>
+  </div>
+
+  <!-- TAB: UPLOAD -->
+  <div class="tab-panel" id="tab-upload">
+    <div class="card">
+      <h3 style="margin-top:0">1. Upload Job Profile Form</h3>
+      <p class="hint">Format yang didukung: .xlsx dan .pdf, dari template Job Profile Form yang biasa kamu pakai.</p>
+      <div id="uploadErr"></div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.pdf" />
+      <div style="margin-top:12px">
+        <button id="parseBtn">Parse File</button>
+        <span class="hint" id="parseStatus"></span>
+      </div>
+    </div>
+
+    <div class="card" id="previewCard" style="display:none">
+      <h3 style="margin-top:0">2. Review &amp; Lengkapi Data</h3>
+      <p class="hint">Data di bawah hasil auto-extract dari file. Cek dan edit kalau ada yang kurang pas sebelum disimpan.</p>
+
+      <div class="grid-2">
+        <div class="field">
+          <label>Job Title</label>
+          <input id="f_jobTitle" />
+        </div>
+        <div class="field">
+          <label>Department</label>
+          <input id="f_department" />
+        </div>
+        <div class="field">
+          <label>Direct Report To</label>
+          <input id="f_directReportTo" />
+        </div>
+        <div class="field">
+          <label>Position in Org. Structure Chart</label>
+          <input id="f_orgStructurePosition" />
+        </div>
+        <div class="field">
+          <label>Position Type</label>
+          <select id="f_positionType">
+            <option value="Full Time">Full Time</option>
+            <option value="Contract">Contract</option>
+            <option value="Part Time">Part Time</option>
+            <option value="Project Based">Project Based</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Placement</label>
+          <input id="f_placement" />
+        </div>
+        <div class="field">
+          <label>Office Hours</label>
+          <input id="f_officeHours" />
+        </div>
+        <div class="field">
+          <label>Travel Required</label>
+          <select id="f_travelRequired">
+            <option value="Yes">Yes</option>
+            <option value="No">No</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Salary Range</label>
+          <input id="f_salaryRange" />
+        </div>
+        <div class="field">
+          <label>Industry (auto-detect, bisa diedit)</label>
+          <select id="f_industry"></select>
+          <div class="confidence-note" id="confidenceNote"></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Job Descriptions</label>
+        <textarea id="f_jobDescription" rows="6"></textarea>
+      </div>
+      <div class="field">
+        <label>Job Requirements</label>
+        <textarea id="f_jobRequirements" rows="5"></textarea>
+      </div>
+      <div class="field">
+        <label>Preferred Skills</label>
+        <textarea id="f_preferredSkills" rows="4"></textarea>
+      </div>
+      <div class="field">
+        <label>Special Requirements</label>
+        <textarea id="f_specialRequirements" rows="4"></textarea>
+      </div>
+
+      <h3>3. Assign &amp; Status</h3>
+      <div class="grid-2">
+        <div class="field">
+          <label>Assign ke Freelancer</label>
+          <select id="f_assignedTo">
+            <option value="">Belum di-assign</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Status</label>
+          <select id="f_status">
+            <option value="open">Open</option>
+            <option value="closed">Closed</option>
+          </select>
+        </div>
+      </div>
+
+      <button id="saveJobBtn">Simpan Job</button>
+      <button class="secondary" id="cancelUploadBtn">Batal</button>
+    </div>
+  </div>
+
+  <!-- TAB: FREELANCERS -->
+  <div class="tab-panel" id="tab-freelancers">
+    <div class="card">
+      <h3 style="margin-top:0">Tambah Freelancer Baru</h3>
+      <div id="userErr"></div>
+      <div class="grid-3">
+        <div class="field">
+          <label>Nama</label>
+          <input id="nf_name" />
+        </div>
+        <div class="field">
+          <label>Username</label>
+          <input id="nf_username" />
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input id="nf_password" type="text" />
+        </div>
+      </div>
+      <button id="addFreelancerBtn">Tambah Freelancer</button>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Daftar Freelancer</h3>
+      <div id="freelancerListWrap"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal detail job -->
+<div class="modal-overlay" id="detailModal" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="detailTitle"></h2>
+      <button class="close-x" id="closeDetailBtn">&times;</button>
+    </div>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

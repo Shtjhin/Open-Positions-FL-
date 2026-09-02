@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Login - Job Platform</title>
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card">
+    <h1>Job Platform</h1>
+    <div id="err"></div>
+    <form id="loginForm">
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="username" autocomplete="username" required />
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="password" autocomplete="current-password" required />
+      </div>
+      <button type="submit" style="width:100%">Masuk</button>
+    </form>
+  </div>
+</div>
+<script src="/js/api.js"></script>
+<script>
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errBox = document.getElementById('err');
+    errBox.innerHTML = '';
+    try {
+      const { user } = await api('/api/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          username: document.getElementById('username').value.trim(),
+          password: document.getElementById('password').value,
+        }),
+      });
+      window.location.href = user.role === 'admin' ? '/admin.html' : '/freelancer.html';
+    } catch (err) {
+      errBox.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+    }
+  });
+</script>
+</body>
+</html>
