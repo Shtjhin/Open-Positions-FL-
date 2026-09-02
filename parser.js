@@ -16,16 +16,17 @@ const FIELD_DEFS = [
   { key: 'job_title', labels: ['job title'] },
   { key: 'department', labels: ['department'] },
   { key: 'direct_report_to', labels: ['direct report to', 'direct reports to'] },
-  { key: 'org_structure_position', labels: ['position in org.structure chart', 'position in org structure chart', 'position in organization structure chart'] },
   { key: 'position_type', labels: ['position type'] },
   { key: 'placement', labels: ['placement'] },
   { key: 'office_hours', labels: ['office hours'] },
+  { key: 'working_days', labels: ['working days', 'working day'] },
   { key: 'travel_required', labels: ['travel required'] },
   { key: 'job_description', labels: ['job descriptions', 'job description'] },
   { key: 'job_requirements', labels: ['job requirements', 'job requirement'] },
   { key: 'preferred_skills', labels: ['preferred skills', 'preferred skill'] },
   { key: 'special_requirements', labels: ['special requirements', 'special requirement'] },
   { key: 'salary_range', labels: ['salary range'] },
+  { key: 'additional_notes', labels: ['additional notes', 'additional note'] },
 ];
 
 const ALL_LABELS = FIELD_DEFS.flatMap((f) => f.labels);
@@ -135,9 +136,23 @@ function parseLines(lines) {
   }
   flush();
 
-  // Bersihkan tanda kutip pembungkus yang kadang ikut ke-export dari Excel.
+  // Strip stray wrapping quotes that sometimes come through from Excel exports.
   for (const key of Object.keys(result)) {
     result[key] = result[key].replace(/^"+|"+$/g, '').trim();
+  }
+
+  // Detect Nett/Gross inside the Salary Range text (e.g. "Rp 10jt - 15jt (Nett)")
+  // and split it out into its own field instead of leaving it mixed into the range text.
+  result.salary_type = '';
+  if (result.salary_range) {
+    const m = result.salary_range.match(/\b(nett|gross)\b/i);
+    if (m) {
+      result.salary_type = m[1][0].toUpperCase() + m[1].slice(1).toLowerCase();
+      result.salary_range = result.salary_range
+        .replace(/[\(\[]?\s*(nett|gross)\s*[\)\]]?/i, '')
+        .replace(/[\s\-,]+$/, '')
+        .trim();
+    }
   }
 
   return result;
@@ -194,7 +209,7 @@ async function parseJobFile(buffer, filename) {
   if (ext === 'pdf') {
     return parsePdf(buffer);
   }
-  throw new Error('Format file tidak didukung. Upload file .xlsx atau .pdf.');
+  throw new Error('Unsupported file format. Please upload a .xlsx or .pdf file.');
 }
 
 module.exports = { parseJobFile, parseLines, FIELD_DEFS };

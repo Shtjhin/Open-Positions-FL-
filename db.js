@@ -67,11 +67,17 @@ async function initSchema() {
     );
   `);
 
-  // Migrasi kecil untuk database yang sudah lebih dulu ada (aman dijalankan
-  // berkali-kali, ga akan error kalau kolom/index-nya udah ada).
+  // Small migrations for databases that already existed before these columns
+  // were added (safe to run repeatedly — no error if already present).
   await pool.query(`
     ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
     CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique_idx ON users (email) WHERE email IS NOT NULL;
+  `);
+  await pool.query(`
+    ALTER TABLE jobs ADD COLUMN IF NOT EXISTS working_days TEXT;
+    ALTER TABLE jobs ADD COLUMN IF NOT EXISTS additional_notes TEXT;
+    ALTER TABLE jobs ADD COLUMN IF NOT EXISTS salary_type TEXT;
+    ALTER TABLE jobs ADD COLUMN IF NOT EXISTS assigned_to_all BOOLEAN NOT NULL DEFAULT false;
   `);
 }
 

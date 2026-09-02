@@ -157,7 +157,7 @@ function detectIndustry(...textParts) {
   const text = textParts.filter(Boolean).join(' \n ').toLowerCase();
 
   if (!text.trim()) {
-    return { industry: 'Belum Teridentifikasi', confidence: 'low', scores: [] };
+    return { industry: 'Not Identified', confidence: 'low', scores: [] };
   }
 
   const scores = CATEGORIES.map((cat) => {
@@ -173,7 +173,7 @@ function detectIndustry(...textParts) {
   const top = scores[0];
 
   if (!top || top.score === 0) {
-    return { industry: 'Belum Teridentifikasi', confidence: 'low', scores };
+    return { industry: 'Not Identified', confidence: 'low', scores };
   }
 
   const second = scores[1];
