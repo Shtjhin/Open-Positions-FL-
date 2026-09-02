@@ -26,7 +26,6 @@ const FIELD_DEFS = [
   { key: 'preferred_skills', labels: ['preferred skills', 'preferred skill'] },
   { key: 'special_requirements', labels: ['special requirements', 'special requirement'] },
   { key: 'salary_range', labels: ['salary range'] },
-  { key: 'additional_notes', labels: ['additional notes', 'additional note'] },
 ];
 
 const ALL_LABELS = FIELD_DEFS.flatMap((f) => f.labels);
