@@ -13,6 +13,12 @@ const { detectIndustry } = require('../industry');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
 
 const app = express();
+
+// Vercel (dan hosting serverless lain) meneruskan request lewat proxy —
+// tanpa ini, Express ga tau koneksinya sebenernya HTTPS, jadi cookie
+// session "secure" ga pernah kekirim ke browser dan user selalu ke-logout.
+app.set('trust proxy', 1);
+
 app.use(express.json({ limit: '2mb' }));
 
 // --- Setup DB schema + admin pertama, cuma dijalankan sekali per cold start ---
@@ -108,6 +114,14 @@ app.post('/api/login', async (req, res) => {
   if (!ok) return res.status(401).json({ error: 'Username atau password salah.' });
 
   req.session.user = { id: user.id, name: user.name, role: user.role, username: user.username };
+
+  // Catat riwayat login (buat admin liat siapa aja yang login). Kalau gagal
+  // dicatat, jangan sampai bikin proses login-nya sendiri gagal.
+  pool.query(
+    'INSERT INTO login_history (user_id, username, name, role, ip_address, user_agent) VALUES ($1,$2,$3,$4,$5,$6)',
+    [user.id, user.username, user.name, user.role, req.ip || null, (req.get('user-agent') || '').slice(0, 255)]
+  ).catch((e) => console.error('Gagal mencatat login_history:', e));
+
   res.json({ user: req.session.user });
 });
 
@@ -120,49 +134,94 @@ app.get('/api/me', (req, res) => {
   res.json({ user: req.session.user });
 });
 
+// Ganti password sendiri — bisa dipakai admin maupun freelancer.
+app.post('/api/me/password', requireAuth, async (req, res) => {
+  const { currentPassword, newPassword } = req.body || {};
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Password lama & password baru wajib diisi.' });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'Password baru minimal 6 karakter.' });
+  }
+
+  const { rows } = await pool.query('SELECT * FROM users WHERE id = $1', [req.session.user.id]);
+  const user = rows[0];
+  if (!user) return res.status(404).json({ error: 'User tidak ditemukan.' });
+
+  const ok = await bcrypt.compare(currentPassword, user.password_hash);
+  if (!ok) return res.status(401).json({ error: 'Password lama salah.' });
+
+  const hash = await bcrypt.hash(newPassword, 10);
+  await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, user.id]);
+  res.json({ ok: true });
+});
+
+// Riwayat login (admin only) — buat lihat siapa aja yang login & kapan.
+app.get('/api/login-history', requireAdmin, async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT id, username, name, role, ip_address, user_agent, logged_in_at FROM login_history ORDER BY logged_in_at DESC LIMIT 200'
+  );
+  res.json({ history: rows });
+});
+
 // ---------------- USERS (freelancer management, admin only) ----------------
 
 app.get('/api/users', requireAuth, async (req, res) => {
   const { rows } = await pool.query(
-    "SELECT id, username, name, role, active, created_at FROM users WHERE role = 'freelancer' ORDER BY created_at DESC"
+    "SELECT id, username, name, email, role, active, created_at FROM users WHERE role = 'freelancer' ORDER BY created_at DESC"
   );
   res.json({ users: rows });
 });
 
 app.post('/api/users', requireAdmin, async (req, res) => {
-  const { username, password, name } = req.body || {};
-  if (!username || !password || !name) {
-    return res.status(400).json({ error: 'Username, password, dan nama wajib diisi.' });
+  const { username, password, name, email } = req.body || {};
+  if (!username || !password || !name || !email) {
+    return res.status(400).json({ error: 'Username, password, nama, dan email wajib diisi.' });
+  }
+  if (!/^\S+@\S+\.\S+$/.test(email)) {
+    return res.status(400).json({ error: 'Format email tidak valid.' });
   }
   const hash = await bcrypt.hash(password, 10);
   try {
     const { rows } = await pool.query(
-      'INSERT INTO users (username, password_hash, name, role) VALUES ($1,$2,$3,$4) RETURNING id, username, name, role, active, created_at',
-      [username, hash, name, 'freelancer']
+      'INSERT INTO users (username, password_hash, name, email, role) VALUES ($1,$2,$3,$4,$5) RETURNING id, username, name, email, role, active, created_at',
+      [username, hash, name, email.trim().toLowerCase(), 'freelancer']
     );
     res.status(201).json({ user: rows[0] });
   } catch (e) {
-    if (e.code === '23505') return res.status(409).json({ error: 'Username sudah dipakai.' });
+    if (e.code === '23505') {
+      const isEmail = (e.constraint || '').includes('email');
+      return res.status(409).json({ error: isEmail ? 'Email ini sudah dipakai user lain.' : 'Username sudah dipakai.' });
+    }
     throw e;
   }
 });
 
 app.patch('/api/users/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
-  const { active, password, name } = req.body || {};
+  const { active, password, name, email } = req.body || {};
   const updates = [];
   const values = [];
   let i = 1;
 
   if (typeof active === 'boolean') { updates.push(`active = $${i++}`); values.push(active); }
   if (name) { updates.push(`name = $${i++}`); values.push(name); }
+  if (email) {
+    if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: 'Format email tidak valid.' });
+    updates.push(`email = $${i++}`); values.push(email.trim().toLowerCase());
+  }
   if (password) { updates.push(`password_hash = $${i++}`); values.push(await bcrypt.hash(password, 10)); }
 
   if (!updates.length) return res.status(400).json({ error: 'Tidak ada perubahan.' });
 
   values.push(id);
-  await pool.query(`UPDATE users SET ${updates.join(', ')} WHERE id = $${i}`, values);
-  res.json({ ok: true });
+  try {
+    await pool.query(`UPDATE users SET ${updates.join(', ')} WHERE id = $${i}`, values);
+    res.json({ ok: true });
+  } catch (e) {
+    if (e.code === '23505') return res.status(409).json({ error: 'Email ini sudah dipakai user lain.' });
+    throw e;
+  }
 });
 
 // ---------------- JOBS ----------------
