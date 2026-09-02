@@ -54,6 +54,24 @@ async function initSchema() {
       note TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+
+    CREATE TABLE IF NOT EXISTS login_history (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      username TEXT NOT NULL,
+      name TEXT NOT NULL,
+      role TEXT NOT NULL,
+      ip_address TEXT,
+      user_agent TEXT,
+      logged_in_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+
+  // Migrasi kecil untuk database yang sudah lebih dulu ada (aman dijalankan
+  // berkali-kali, ga akan error kalau kolom/index-nya udah ada).
+  await pool.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
+    CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique_idx ON users (email) WHERE email IS NOT NULL;
   `);
 }
 
