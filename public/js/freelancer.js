@@ -54,11 +54,12 @@ async function loadJobs() {
   wrap.innerHTML = `
     <table>
       <thead>
-        <tr><th>Job Title</th><th>Industry</th><th>Placement</th><th>Status</th><th>Actions</th></tr>
+        <tr><th>Code</th><th>Job Title</th><th>Industry</th><th>Placement</th><th>Status</th><th>Actions</th></tr>
       </thead>
       <tbody>
         ${jobs.map((j) => `
           <tr>
+            <td>${escapeHtml(j.jobCode || '-')}</td>
             <td><strong>${escapeHtml(j.jobTitle)}</strong><div class="hint">${escapeHtml(j.department || '')}</div></td>
             <td>${escapeHtml(j.industry)}</td>
             <td>${escapeHtml(j.placement || '-')}</td>
@@ -80,6 +81,7 @@ async function openJobDetail(id) {
   document.getElementById('detailTitle').textContent = job.jobTitle;
 
   document.getElementById('detailBody').innerHTML = `
+    <div class="detail-row"><div class="k">Job Code</div><div class="v">${escapeHtml(job.jobCode || '-')}</div></div>
     <div class="grid-2">
       <div class="detail-row"><div class="k">Department</div><div class="v">${escapeHtml(job.department || '-')}</div></div>
       <div class="detail-row"><div class="k">Direct Report To</div><div class="v">${escapeHtml(job.directReportTo || '-')}</div></div>
@@ -100,10 +102,7 @@ async function openJobDetail(id) {
 
     <div class="field" style="margin-top:16px">
       <label>Status</label>
-      <div class="status-toggle">
-        <button data-status="open" ${job.status === 'open' ? 'disabled' : ''}>Mark Open</button>
-        <button data-status="closed" class="secondary" ${job.status === 'closed' ? 'disabled' : ''}>Mark Closed</button>
-      </div>
+      <div class="v"><span class="badge ${job.status}">${job.status === 'open' ? 'Open' : 'Closed'}</span></div>
     </div>
 
     <h3>Notes</h3>
@@ -115,25 +114,7 @@ async function openJobDetail(id) {
         </div>
       `).join('') : '<div class="hint">No notes yet.</div>'}
     </div>
-    <div class="field" style="margin-top:10px">
-      <textarea id="d_newNote" placeholder="Add a note or progress update..." rows="2"></textarea>
-    </div>
-    <button class="secondary" id="d_addNoteBtn">Add Note</button>
   `;
-
-  document.getElementById('detailBody').querySelectorAll('[data-status]').forEach((btn) => {
-    btn.onclick = async () => {
-      await api(`/api/jobs/${id}`, { method: 'PATCH', body: JSON.stringify({ status: btn.dataset.status }) });
-      document.getElementById('detailModal').style.display = 'none';
-      loadJobs();
-    };
-  });
-  document.getElementById('d_addNoteBtn').onclick = async () => {
-    const note = document.getElementById('d_newNote').value.trim();
-    if (!note) return;
-    await api(`/api/jobs/${id}/notes`, { method: 'POST', body: JSON.stringify({ note }) });
-    openJobDetail(id);
-  };
 
   document.getElementById('detailModal').style.display = 'flex';
 }

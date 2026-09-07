@@ -547,13 +547,14 @@ async function loadJobs() {
     <table>
       <thead>
         <tr>
-          <th>Job Title</th><th>Industry</th><th>Placement</th><th>Direct Report To</th>
+          <th>Code</th><th>Job Title</th><th>Industry</th><th>Placement</th><th>Direct Report To</th>
           <th>Assigned To</th><th>Status</th><th>Actions</th>
         </tr>
       </thead>
       <tbody>
         ${jobs.map((j) => `
           <tr>
+            <td>${escapeHtml(j.jobCode || '-')}</td>
             <td><strong>${escapeHtml(j.jobTitle)}</strong><div class="hint">${escapeHtml(j.department || '')}</div></td>
             <td>${escapeHtml(j.industry)}</td>
             <td>${escapeHtml(j.placement || '-')}</td>
@@ -587,7 +588,7 @@ async function openJobDetail(id) {
   document.getElementById('detailTitle').textContent = job.jobTitle;
 
   document.getElementById('detailBody').innerHTML = `
-    <p class="hint">Edit any field below, then click Save Changes.</p>
+    <p class="hint">Job Code: <strong>${escapeHtml(job.jobCode || '-')}</strong> (auto-generated, not editable) &middot; Edit any field below, then click Save Changes.</p>
     ${renderJobEditFields('d', job)}
 
     <h3>Assign &amp; Status</h3>
