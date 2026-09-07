@@ -56,6 +56,15 @@
         <button id="parseBtn">Parse File</button>
         <span class="hint" id="parseStatus"></span>
       </div>
+
+      <div class="hint" style="margin:16px 0 8px">— or, if you don't have a file —</div>
+      <div class="field">
+        <label>Paste job text directly</label>
+        <textarea id="pasteText" rows="8" placeholder="Paste the job text here, e.g. from an email or chat. The usual labels are recognized, like &quot;Job Title:&quot;, &quot;Department:&quot;, &quot;Job Description&quot;, &quot;Requirements&quot;, etc."></textarea>
+      </div>
+      <div style="margin-top:8px">
+        <button id="parseTextBtn" class="secondary">Parse Pasted Text</button>
+      </div>
     </div>
 
     <div class="card" id="previewCard" style="display:none">
@@ -123,11 +132,13 @@
           </div>
         </div>
         <div class="field">
-          <label>Industry (auto-detected, editable)</label>
-          <select id="f_industry"></select>
+          <label>Industry (auto-detected, editable — type your own or pick a suggestion)</label>
+          <input id="f_industry" list="industryOptions" placeholder="e.g. Technology / IT / Software" />
           <div class="confidence-note" id="confidenceNote"></div>
         </div>
       </div>
+
+      <datalist id="industryOptions"></datalist>
 
       <div class="field">
         <label>Additional Notes</label>
