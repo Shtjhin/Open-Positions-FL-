@@ -7,7 +7,7 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 
 const { pool, initSchema } = require('../db');
-const { parseJobFile } = require('../parser');
+const { parseJobFile, parseLines } = require('../parser');
 const { detectIndustry } = require('../industry');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
@@ -251,47 +251,74 @@ app.patch('/api/users/:id', requireAdmin, async (req, res) => {
 
 // ---------------- JOBS ----------------
 
+// Shared by both the file-upload parse route and the paste-text parse route
+// below — turns the raw parseLines()/parseJobFile() output (snake_case,
+// straight from the form labels) into the camelCase preview shape the
+// frontend expects, plus the auto-detected industry.
+function buildParsePreview(fields, sourceFilename) {
+  const { industry, confidence } = detectIndustry(
+    fields.job_title,
+    fields.department,
+    fields.job_overview,
+    fields.job_description,
+    fields.job_requirements,
+    fields.preferred_skills,
+    fields.special_requirements
+  );
+  return {
+    fields: {
+      jobTitle: fields.job_title,
+      department: fields.department,
+      directReportTo: fields.direct_report_to,
+      positionType: fields.position_type,
+      placement: fields.placement,
+      officeHours: fields.office_hours,
+      workingDays: fields.working_days,
+      travelRequired: fields.travel_required,
+      jobOverview: fields.job_overview,
+      jobDescription: fields.job_description,
+      jobRequirements: fields.job_requirements,
+      preferredSkills: fields.preferred_skills,
+      specialRequirements: fields.special_requirements,
+      salaryRange: fields.salary_range,
+      salaryType: fields.salary_type,
+      additionalNotes: fields.additional_notes,
+    },
+    industry,
+    industryConfidence: confidence,
+    sourceFilename: sourceFilename || null,
+  };
+}
+
 // Upload + parse file (preview saja, belum tersimpan ke database)
 app.post('/api/jobs/parse', requireAdmin, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file found.' });
 
   try {
     const fields = await parseJobFile(req.file.buffer, req.file.originalname);
-    const { industry, confidence } = detectIndustry(
-      fields.job_title,
-      fields.department,
-      fields.job_overview,
-      fields.job_description,
-      fields.job_requirements,
-      fields.preferred_skills,
-      fields.special_requirements
-    );
-    res.json({
-      fields: {
-        jobTitle: fields.job_title,
-        department: fields.department,
-        directReportTo: fields.direct_report_to,
-        positionType: fields.position_type,
-        placement: fields.placement,
-        officeHours: fields.office_hours,
-        workingDays: fields.working_days,
-        travelRequired: fields.travel_required,
-        jobOverview: fields.job_overview,
-        jobDescription: fields.job_description,
-        jobRequirements: fields.job_requirements,
-        preferredSkills: fields.preferred_skills,
-        specialRequirements: fields.special_requirements,
-        salaryRange: fields.salary_range,
-        salaryType: fields.salary_type,
-        additionalNotes: fields.additional_notes,
-      },
-      industry,
-      industryConfidence: confidence,
-      sourceFilename: req.file.originalname,
-    });
+    res.json(buildParsePreview(fields, req.file.originalname));
   } catch (e) {
     console.error(e);
     res.status(400).json({ error: e.message || 'Failed to read the file.' });
+  }
+});
+
+// Same idea, but for text pasted directly into the admin panel instead of a
+// file — e.g. a job description copy-pasted from an email or chat. Reuses
+// the exact same label-recognition logic (parseLines) as the file-upload
+// path, so "Job Title:", "Job Description", "Requirements", etc. are picked
+// up the same way.
+app.post('/api/jobs/parse-text', requireAdmin, async (req, res) => {
+  const text = (req.body && req.body.text || '').toString();
+  if (!text.trim()) return res.status(400).json({ error: 'Please paste some text first.' });
+
+  try {
+    const lines = text.replace(/\r/g, '').split('\n');
+    const fields = parseLines(lines);
+    res.json(buildParsePreview(fields, null));
+  } catch (e) {
+    console.error(e);
+    res.status(400).json({ error: e.message || 'Failed to read the pasted text.' });
   }
 });
 
