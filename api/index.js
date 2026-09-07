@@ -82,6 +82,7 @@ function jobToClient(job, users) {
   const assignee = users.find((u) => u.id === job.assigned_to);
   return {
     id: job.id,
+    jobCode: 'MTM-' + String(job.id).padStart(4, '0'),
     jobTitle: job.job_title,
     department: job.department,
     directReportTo: job.direct_report_to,
@@ -348,23 +349,18 @@ app.get('/api/jobs/:id', requireAuth, async (req, res) => {
   res.json({ job: jobToClient(job, users), notes });
 });
 
-app.patch('/api/jobs/:id', requireAuth, async (req, res) => {
+app.patch('/api/jobs/:id', requireAdmin, async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM jobs WHERE id = $1', [req.params.id]);
   const job = rows[0];
   if (!job) return res.status(404).json({ error: 'Job not found.' });
-
-  const isAdmin = req.session.user.role === 'admin';
-  if (!isAdmin && !freelancerCanAccess(job, req.session.user.id)) {
-    return res.status(403).json({ error: 'You do not have access to this job.' });
-  }
 
   const body = req.body || {};
   const updates = [];
   const values = [];
   let i = 1;
 
-  // A freelancer may only change the status. Admin may change any field.
-  const allowedForFreelancer = ['status'];
+  // Freelancers have read-only access to jobs — only an admin can reach this
+  // route at all (see requireAdmin above), so every field here is admin-only.
   const fieldMap = {
     jobTitle: 'job_title', department: 'department', directReportTo: 'direct_report_to',
     positionType: 'position_type', placement: 'placement',
@@ -378,7 +374,6 @@ app.patch('/api/jobs/:id', requireAuth, async (req, res) => {
 
   for (const [clientKey, column] of Object.entries(fieldMap)) {
     if (!(clientKey in body)) continue;
-    if (!isAdmin && !allowedForFreelancer.includes(clientKey)) continue;
     if (clientKey === 'status' && !['open', 'closed'].includes(body.status)) continue;
     updates.push(`${column} = $${i++}`);
     values.push(body[clientKey]);
@@ -386,7 +381,7 @@ app.patch('/api/jobs/:id', requireAuth, async (req, res) => {
 
   // Assigning to "all freelancers" and assigning to one specific freelancer
   // are mutually exclusive — keep the two columns in sync.
-  if (isAdmin && 'assignedToAll' in body && body.assignedToAll) {
+  if ('assignedToAll' in body && body.assignedToAll) {
     updates.push(`assigned_to = $${i++}`);
     values.push(null);
   }
@@ -408,16 +403,15 @@ app.delete('/api/jobs/:id', requireAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/api/jobs/:id/notes', requireAuth, async (req, res) => {
+// Notes are admin-only — freelancers have read-only access to jobs (they can
+// see notes in the job detail view, but cannot add their own).
+app.post('/api/jobs/:id/notes', requireAdmin, async (req, res) => {
   const { note } = req.body || {};
   if (!note || !note.trim()) return res.status(400).json({ error: 'Note is empty.' });
 
   const { rows } = await pool.query('SELECT * FROM jobs WHERE id = $1', [req.params.id]);
   const job = rows[0];
   if (!job) return res.status(404).json({ error: 'Job not found.' });
-  if (req.session.user.role === 'freelancer' && !freelancerCanAccess(job, req.session.user.id)) {
-    return res.status(403).json({ error: 'You do not have access to this job.' });
-  }
 
   const { rows: inserted } = await pool.query(
     'INSERT INTO job_notes (job_id, author_id, note) VALUES ($1,$2,$3) RETURNING id, note, created_at',
