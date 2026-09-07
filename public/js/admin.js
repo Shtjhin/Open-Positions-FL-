@@ -613,7 +613,10 @@ async function openJobDetail(id) {
       ${notes.length ? notes.map((n) => `
         <div class="note-item">
           ${escapeHtml(n.note)}
-          <div class="meta">${escapeHtml(n.author_name || 'Admin')} &middot; ${fmtDate(n.created_at)}</div>
+          <div class="meta">
+            ${escapeHtml(n.author_name || 'Admin')} &middot; ${fmtDate(n.created_at)}
+            <button class="danger-link" data-delete-note="${n.id}" title="Delete this note">Delete</button>
+          </div>
         </div>
       `).join('') : '<div class="hint">No notes yet.</div>'}
     </div>
@@ -657,6 +660,13 @@ async function openJobDetail(id) {
     await api(`/api/jobs/${id}/notes`, { method: 'POST', body: JSON.stringify({ note }) });
     openJobDetail(id);
   };
+  document.getElementById('d_notes').querySelectorAll('[data-delete-note]').forEach((btn) => {
+    btn.onclick = async () => {
+      if (!confirm('Delete this note?')) return;
+      await api(`/api/jobs/${id}/notes/${btn.dataset.deleteNote}`, { method: 'DELETE' });
+      openJobDetail(id);
+    };
+  });
 
   document.getElementById('detailModal').style.display = 'flex';
 }
