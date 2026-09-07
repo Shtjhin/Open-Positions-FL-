@@ -345,6 +345,12 @@ button.danger-link:hover { text-decoration: underline; background: none; }
 }
 .input-row input { flex: 1; min-width: 0; }
 .input-row select { width: 110px; flex-shrink: 0; }
+/* Salary Range packs 5 controls (currency, min, separator, max, type) into
+   one row — on a narrow screen or a squeezed container that's too much to
+   fit on one line at a readable width, so let it wrap onto a second line
+   instead of squishing the min/max amounts down to unreadable slivers. */
+.salary-row { flex-wrap: wrap; }
+.salary-row input { min-width: 110px; }
 .salary-row .range-sep { flex-shrink: 0; align-self: center; color: var(--muted, #6b7280); }
 
 .radio-row {
