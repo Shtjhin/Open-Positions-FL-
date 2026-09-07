@@ -12,6 +12,93 @@ const INDUSTRY_OPTIONS = [
 let freelancers = [];
 let lastParsedPreview = null;
 
+// ---------- SALARY RANGE (currency + thousand-separated min/max) ----------
+
+// Strips everything but digits, then re-inserts "." as the thousands
+// separator (Indonesian convention) as the admin types — e.g. "15000000"
+// becomes "15.000.000". The same grouping marks both the thousands and the
+// millions place, which is all that was asked for.
+function formatThousands(raw) {
+  const digits = (raw || '').replace(/\D/g, '');
+  if (!digits) return '';
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+// Live-formats the Min/Max salary inputs as the admin types.
+function wireSalaryInputs(prefix) {
+  ['Min', 'Max'].forEach((which) => {
+    const el = document.getElementById(`${prefix}_salary${which}`);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      el.value = formatThousands(el.value);
+    });
+  });
+}
+
+// Best-effort parse of a previously-saved or parsed-from-file salary range
+// string (e.g. "Rp 15,000,000 - Rp 20,000,000", "Rp 10jt - 15jt") back into
+// {currency, min, max} so the currency/min/max inputs can be pre-filled.
+// Falls back to keeping the whole original string in `min` under "Other"
+// rather than silently dropping anything it doesn't recognize.
+function parseSalaryRange(raw) {
+  const text = (raw || '').trim();
+  if (!text) return { currency: 'Rp', min: '', max: '' };
+
+  const currencyMatch = text.match(/^(Rp\.?|IDR|US\$|USD|S\$|SGD|\$)\s*/i);
+  let currency = 'Other';
+  let rest = text;
+  if (currencyMatch) {
+    const tag = currencyMatch[1].toUpperCase().replace(/\./g, '');
+    if (tag === 'RP' || tag === 'IDR') currency = 'Rp';
+    else if (tag === 'USD' || tag === 'US$' || tag === '$') currency = 'USD';
+    else if (tag === 'SGD' || tag === 'S$') currency = 'SGD';
+    rest = text.slice(currencyMatch[0].length);
+  }
+
+  const parts = rest.split(/\s*[-–—]\s*/);
+  // Sherly sometimes writes salaries in shorthand ("10jt" / "500rb" for 10
+  // million / 500 thousand) instead of the full number — expand those to
+  // the full figure before formatting, rather than silently truncating
+  // "10jt" down to just "10".
+  const clean = (s) => {
+    const str = (s || '').replace(/^(Rp\.?|IDR|US\$|USD|S\$|SGD|\$)\s*/i, '').trim();
+    const shorthand = str.match(/^(\d+(?:[.,]\d+)?)\s*(jt|juta|rb|ribu)\b/i);
+    if (shorthand) {
+      const num = parseFloat(shorthand[1].replace(',', '.'));
+      const mult = /^(jt|juta)$/i.test(shorthand[2]) ? 1000000 : 1000;
+      return Number.isNaN(num) ? '' : String(Math.round(num * mult));
+    }
+    return str.replace(/\D/g, '');
+  };
+  const min = formatThousands(clean(parts[0]));
+  const max = parts.length > 1 ? formatThousands(clean(parts[1])) : '';
+
+  if (!min && !max) {
+    return { currency: 'Other', min: text, max: '' };
+  }
+  return { currency: currencyMatch ? currency : 'Rp', min, max };
+}
+
+// Composes the final salary_range text stored on the job from the
+// currency/min/max inputs for the given prefix (e.g. "Rp 15.000.000 -
+// Rp 20.000.000").
+function composeSalaryRange(prefix) {
+  const currency = document.getElementById(`${prefix}_salaryCurrency`).value;
+  const min = document.getElementById(`${prefix}_salaryMin`).value.trim();
+  const max = document.getElementById(`${prefix}_salaryMax`).value.trim();
+  if (!min && !max) return '';
+  const label = currency === 'Other' ? '' : `${currency} `;
+  if (min && max) return `${label}${min} - ${label}${max}`.trim();
+  return `${label}${min || max}`.trim();
+}
+
+function fillSalaryInputs(prefix, salaryRange) {
+  const { currency, min, max } = parseSalaryRange(salaryRange);
+  setSelectValue(`${prefix}_salaryCurrency`, currency);
+  document.getElementById(`${prefix}_salaryMin`).value = min;
+  document.getElementById(`${prefix}_salaryMax`).value = max;
+}
+
 async function init() {
   const { user } = await api('/api/me').catch(() => { window.location.href = '/login.html'; throw new Error(); });
   document.getElementById('whoami').textContent = `${user.name} (admin)`;
@@ -35,6 +122,7 @@ async function init() {
   await loadJobs();
 
   wireAssignControls('f');
+  wireSalaryInputs('f');
 
   document.getElementById('refreshBtn').onclick = loadJobs;
   document.getElementById('filterStatus').onchange = loadJobs;
@@ -257,7 +345,7 @@ function fillPreviewForm(data) {
   document.getElementById('f_officeHours').value = f.officeHours || '';
   document.getElementById('f_workingDays').value = f.workingDays || '';
   setSelectValue('f_travelRequired', f.travelRequired);
-  document.getElementById('f_salaryRange').value = f.salaryRange || '';
+  fillSalaryInputs('f', f.salaryRange);
   setSelectValue('f_salaryType', f.salaryType || '');
   document.getElementById('f_additionalNotes').value = f.additionalNotes || '';
   document.getElementById('f_jobOverview').value = f.jobOverview || '';
@@ -315,7 +403,7 @@ async function handleSaveJob() {
     officeHours: document.getElementById('f_officeHours').value.trim(),
     workingDays: document.getElementById('f_workingDays').value.trim(),
     travelRequired: document.getElementById('f_travelRequired').value,
-    salaryRange: document.getElementById('f_salaryRange').value.trim(),
+    salaryRange: composeSalaryRange('f'),
     salaryType: document.getElementById('f_salaryType').value,
     additionalNotes: document.getElementById('f_additionalNotes').value.trim(),
     industry: document.getElementById('f_industry').value,
@@ -472,8 +560,18 @@ function renderJobEditFields(prefix, job = {}) {
       </div>
       <div class="field">
         <label>Salary Range</label>
-        <div class="input-row">
-          <input id="${prefix}_salaryRange" value="${escapeHtml(job.salaryRange || '')}" placeholder="e.g. Rp 15,000,000 - Rp 20,000,000" />
+        <div class="input-row salary-row">
+          ${(() => {
+            const parsed = parseSalaryRange(job.salaryRange);
+            return `
+            <select id="${prefix}_salaryCurrency">
+              ${['Rp', 'USD', 'SGD', 'Other'].map((c) => `<option value="${c}" ${parsed.currency === c ? 'selected' : ''}>${c}</option>`).join('')}
+            </select>
+            <input id="${prefix}_salaryMin" value="${escapeHtml(parsed.min)}" placeholder="Min, e.g. 15.000.000" inputmode="numeric" />
+            <span class="range-sep">-</span>
+            <input id="${prefix}_salaryMax" value="${escapeHtml(parsed.max)}" placeholder="Max, e.g. 20.000.000" inputmode="numeric" />
+          `;
+          })()}
           <select id="${prefix}_salaryType">
             <option value="">Type</option>
             <option value="Nett" ${job.salaryType === 'Nett' ? 'selected' : ''}>Nett</option>
@@ -512,7 +610,7 @@ function readJobEditFields(prefix) {
     officeHours: document.getElementById(`${prefix}_officeHours`).value.trim(),
     workingDays: document.getElementById(`${prefix}_workingDays`).value.trim(),
     travelRequired: document.getElementById(`${prefix}_travelRequired`).value,
-    salaryRange: document.getElementById(`${prefix}_salaryRange`).value.trim(),
+    salaryRange: composeSalaryRange(prefix),
     salaryType: document.getElementById(`${prefix}_salaryType`).value,
     industry: document.getElementById(`${prefix}_industry`).value,
     additionalNotes: document.getElementById(`${prefix}_additionalNotes`).value.trim(),
@@ -628,6 +726,7 @@ async function openJobDetail(id) {
 
   wireAssignControls('d');
   wireBulletEditors('d');
+  wireSalaryInputs('d');
 
   document.getElementById('d_saveBtn').onclick = async () => {
     const errBox = document.getElementById('d_saveErr');
