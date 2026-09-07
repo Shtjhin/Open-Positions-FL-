@@ -21,7 +21,7 @@ const FIELD_DEFS = [
   { key: 'office_hours', labels: ['office hours'] },
   { key: 'working_days', labels: ['working days', 'working day'] },
   { key: 'travel_required', labels: ['travel required'] },
-  { key: 'job_description', labels: ['job descriptions', 'job description'] },
+  { key: 'job_description', labels: ['job descriptions', 'job description', 'job overview', 'position overview', 'role overview'] },
   { key: 'job_requirements', labels: ['job requirements', 'job requirement'] },
   { key: 'preferred_skills', labels: ['preferred skills', 'preferred skill'] },
   { key: 'special_requirements', labels: ['special requirements', 'special requirement'] },
