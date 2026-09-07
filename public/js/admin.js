@@ -252,6 +252,7 @@ function fillPreviewForm(data) {
   document.getElementById('f_jobTitle').value = f.jobTitle || '';
   document.getElementById('f_department').value = f.department || '';
   document.getElementById('f_directReportTo').value = f.directReportTo || '';
+  document.getElementById('f_orgStructurePosition').value = f.orgStructurePosition || '';
   setSelectValue('f_positionType', f.positionType);
   document.getElementById('f_placement').value = f.placement || '';
   document.getElementById('f_officeHours').value = f.officeHours || '';
@@ -260,6 +261,7 @@ function fillPreviewForm(data) {
   document.getElementById('f_salaryRange').value = f.salaryRange || '';
   setSelectValue('f_salaryType', f.salaryType || '');
   document.getElementById('f_additionalNotes').value = f.additionalNotes || '';
+  document.getElementById('f_jobOverview').value = f.jobOverview || '';
   BULLET_FIELDS.forEach(({ key, label }) => {
     document.getElementById(`f_${key}_wrap`).innerHTML = renderBulletEditorField('f', key, label, f[key]);
   });
@@ -309,6 +311,7 @@ async function handleSaveJob() {
     jobTitle: document.getElementById('f_jobTitle').value.trim(),
     department: document.getElementById('f_department').value.trim(),
     directReportTo: document.getElementById('f_directReportTo').value.trim(),
+    orgStructurePosition: document.getElementById('f_orgStructurePosition').value.trim(),
     positionType: document.getElementById('f_positionType').value,
     placement: document.getElementById('f_placement').value.trim(),
     officeHours: document.getElementById('f_officeHours').value.trim(),
@@ -319,6 +322,7 @@ async function handleSaveJob() {
     additionalNotes: document.getElementById('f_additionalNotes').value.trim(),
     industry: document.getElementById('f_industry').value,
     industryConfidence: lastParsedPreview ? lastParsedPreview.industryConfidence : 'low',
+    jobOverview: document.getElementById('f_jobOverview').value.trim(),
     jobDescription: readBulletEditor('f', 'jobDescription'),
     jobRequirements: readBulletEditor('f', 'jobRequirements'),
     preferredSkills: readBulletEditor('f', 'preferredSkills'),
@@ -445,6 +449,10 @@ function renderJobEditFields(prefix, job = {}) {
         <input id="${prefix}_directReportTo" value="${escapeHtml(job.directReportTo || '')}" />
       </div>
       <div class="field">
+        <label>Position in Org Structure Chart</label>
+        <input id="${prefix}_orgStructurePosition" value="${escapeHtml(job.orgStructurePosition || '')}" />
+      </div>
+      <div class="field">
         <label>Position Type</label>
         <select id="${prefix}_positionType">
           ${['Full Time', 'Contract', 'Part Time', 'Project Based'].map((o) => `<option value="${o}" ${job.positionType === o ? 'selected' : ''}>${o}</option>`).join('')}
@@ -490,6 +498,10 @@ function renderJobEditFields(prefix, job = {}) {
       <label>Additional Notes</label>
       <textarea id="${prefix}_additionalNotes" rows="3" placeholder="Anything else worth noting, kept separate from the salary range">${escapeHtml(job.additionalNotes || '')}</textarea>
     </div>
+    <div class="field">
+      <label>Job Overview</label>
+      <textarea id="${prefix}_jobOverview" rows="3" placeholder="General summary of the role, kept separate from the description bullets below">${escapeHtml(job.jobOverview || '')}</textarea>
+    </div>
     ${BULLET_FIELDS.map(({ key, label }) => `
       <div class="field">${renderBulletEditorField(prefix, key, label, job[key])}</div>
     `).join('')}
@@ -501,6 +513,7 @@ function readJobEditFields(prefix) {
     jobTitle: document.getElementById(`${prefix}_jobTitle`).value.trim(),
     department: document.getElementById(`${prefix}_department`).value.trim(),
     directReportTo: document.getElementById(`${prefix}_directReportTo`).value.trim(),
+    orgStructurePosition: document.getElementById(`${prefix}_orgStructurePosition`).value.trim(),
     positionType: document.getElementById(`${prefix}_positionType`).value,
     placement: document.getElementById(`${prefix}_placement`).value.trim(),
     officeHours: document.getElementById(`${prefix}_officeHours`).value.trim(),
@@ -510,6 +523,7 @@ function readJobEditFields(prefix) {
     salaryType: document.getElementById(`${prefix}_salaryType`).value,
     industry: document.getElementById(`${prefix}_industry`).value,
     additionalNotes: document.getElementById(`${prefix}_additionalNotes`).value.trim(),
+    jobOverview: document.getElementById(`${prefix}_jobOverview`).value.trim(),
     jobDescription: readBulletEditor(prefix, 'jobDescription'),
     jobRequirements: readBulletEditor(prefix, 'jobRequirements'),
     preferredSkills: readBulletEditor(prefix, 'preferredSkills'),

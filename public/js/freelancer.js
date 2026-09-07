@@ -83,6 +83,7 @@ async function openJobDetail(id) {
     <div class="grid-2">
       <div class="detail-row"><div class="k">Department</div><div class="v">${escapeHtml(job.department || '-')}</div></div>
       <div class="detail-row"><div class="k">Direct Report To</div><div class="v">${escapeHtml(job.directReportTo || '-')}</div></div>
+      <div class="detail-row"><div class="k">Position in Org Structure Chart</div><div class="v">${escapeHtml(job.orgStructurePosition || '-')}</div></div>
       <div class="detail-row"><div class="k">Position Type</div><div class="v">${escapeHtml(job.positionType || '-')}</div></div>
       <div class="detail-row"><div class="k">Placement</div><div class="v">${escapeHtml(job.placement || '-')}</div></div>
       <div class="detail-row"><div class="k">Office Hours</div><div class="v">${escapeHtml(job.officeHours || '-')}</div></div>
@@ -92,6 +93,7 @@ async function openJobDetail(id) {
       <div class="detail-row"><div class="k">Industry</div><div class="v">${escapeHtml(job.industry)}</div></div>
     </div>
     <div class="detail-row"><div class="k">Additional Notes</div><div class="v">${escapeHtml(job.additionalNotes || '-')}</div></div>
+    <div class="detail-row"><div class="k">Job Overview</div><div class="v">${escapeHtml(job.jobOverview || '-')}</div></div>
     <div class="detail-row"><div class="k">Job Description</div>${renderBullets(job.jobDescription)}</div>
     <div class="detail-row"><div class="k">Job Requirements</div>${renderBullets(job.jobRequirements)}</div>
     <div class="detail-row"><div class="k">Preferred Skills</div>${renderBullets(job.preferredSkills)}</div>
