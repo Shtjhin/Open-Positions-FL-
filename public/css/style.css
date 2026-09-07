@@ -345,6 +345,7 @@ button.danger-link:hover { text-decoration: underline; background: none; }
 }
 .input-row input { flex: 1; min-width: 0; }
 .input-row select { width: 110px; flex-shrink: 0; }
+.salary-row .range-sep { flex-shrink: 0; align-self: center; color: var(--muted, #6b7280); }
 
 .radio-row {
   display: flex;
