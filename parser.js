@@ -29,11 +29,19 @@ function getPdfjs() {
 // Label-label yang ada di form Job Profile Sherly, beserta beberapa variasi
 // penulisan (biar parsing tetap jalan walau ada sedikit perbedaan format).
 const FIELD_DEFS = [
-  { key: 'job_title', labels: ['job title'] },
+  // "Open Position:" / "Position:" / "Role:" / "Vacancy:" are common ways
+  // external job-ad text opens instead of Sherly's own "Job Title:" —
+  // recognized as aliases so the title is captured cleanly (without the
+  // label text itself getting stuck onto the front of it). "Position" stays
+  // safe next to "Position Type" below since the longer, more specific
+  // label always wins when both match a line's start (see matchLabelAtStart).
+  { key: 'job_title', labels: ['job title', 'open position', 'position', 'role', 'vacancy'] },
   { key: 'department', labels: ['department'] },
   { key: 'direct_report_to', labels: ['direct report to', 'direct reports to'] },
   { key: 'position_type', labels: ['position type'] },
-  { key: 'placement', labels: ['placement'] },
+  // "Location:" is a very common stand-in for "Placement:" in external job
+  // ads.
+  { key: 'placement', labels: ['placement', 'location'] },
   { key: 'office_hours', labels: ['office hours'] },
   { key: 'working_days', labels: ['working days', 'working day'] },
   { key: 'travel_required', labels: ['travel required'] },
@@ -41,18 +49,27 @@ const FIELD_DEFS = [
   // some of Sherly's templates give it its own row/label right before "Job
   // Descriptions" and expect it to stay a separate paragraph, not get mixed
   // in with the responsibilities list.
-  { key: 'job_overview', labels: ['job overview', 'position overview', 'role overview'] },
+  { key: 'job_overview', labels: ['job overview', 'position overview', 'role overview', 'the role', 'about the role', 'about this role', 'summary'] },
   // "Job Responsibilities" is what some templates call the actual bulleted
   // description content — recognized as an alias for job_description below.
   // Some of Sherly's simpler "job ad" style PDFs (just a title + two bullet
   // sections, no full intake form) use the bare word "Responsibilities" as
   // the section header instead, so that's recognized too.
-  { key: 'job_description', labels: ['job descriptions', 'job description', 'job responsibilities', 'responsibilities'] },
+  // "Key Responsibilities" (and its close variants) is another very common
+  // external job-ad phrasing for this same section.
+  { key: 'job_description', labels: ['job descriptions', 'job description', 'job responsibilities', 'responsibilities', 'key responsibilities', 'main responsibilities', 'core responsibilities', 'duties', 'key duties'] },
   // Those same simple job-ad PDFs label the second section just
   // "Requirements" or "Qualification(s)" with no "Job" in front — recognized
   // as aliases here so that content doesn't fall through and get glued onto
-  // the end of Job Description instead.
-  { key: 'job_requirements', labels: ['job requirements', 'job requirement', 'requirements', 'requirement', 'qualifications', 'qualification'] },
+  // the end of Job Description instead. "What We're Looking For" is yet
+  // another very common external phrasing for the same section.
+  {
+    key: 'job_requirements',
+    labels: [
+      'job requirements', 'job requirement', 'requirements', 'requirement', 'qualifications', 'qualification',
+      "what we're looking for", 'what we are looking for', "what you'll need", 'what you will need', 'who you are',
+    ],
+  },
   { key: 'preferred_skills', labels: ['preferred skills', 'preferred skill'] },
   { key: 'special_requirements', labels: ['special requirements', 'special requirement'] },
   { key: 'salary_range', labels: ['salary range'] },
@@ -62,7 +79,14 @@ const FIELD_DEFS = [
 const ALL_LABELS = FIELD_DEFS.flatMap((f) => f.labels);
 
 function norm(s) {
-  return (s || '').toString().toLowerCase().replace(/\s+/g, ' ').trim();
+  return (s || '').toString().toLowerCase()
+    // Word/Google Docs auto-correct straight quotes into curly ones
+    // ("What We’re Looking For", "Bachelor’s Degree") — normalize those to
+    // plain ASCII quotes so label matching isn't thrown off by which one a
+    // given source document happens to use.
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/\s+/g, ' ').trim();
 }
 
 // Fields that should always come out as one clean point per line (Job
@@ -120,6 +144,40 @@ function matchLabelAtStart(lineNorm) {
     }
   }
   return best;
+}
+
+// Sherly deals with job text from many different external clients, and
+// every one seems to phrase its section headers a little differently
+// ("Job Description" vs "Key Responsibilities" vs "What You'll Do";
+// "Requirements" vs "What We're Looking For" vs "Who You Are"). Keeping up
+// with an exact-phrase alias for every variant anyone might use is a losing
+// game, so this is a looser safety net: when a line doesn't match any known
+// label exactly, but LOOKS like a section header (see isHeaderShaped below)
+// and CONTAINS one of these telltale words/phrases, classify it anyway
+// instead of silently dropping everything under it. Checked in this order
+// so a more specific phrase (e.g. "looking for") wins over a broader one.
+const HEADER_KEYWORDS = [
+  { key: 'job_requirements', words: ['looking for', "what you'll need", 'what you need', 'who you are', 'candidate profile', 'what it takes', 'qualification', 'requirement'] },
+  { key: 'job_description', words: ['responsibilit', 'duties', "what you'll do", 'what you will do', 'key tasks', 'day-to-day', 'day to day'] },
+  { key: 'preferred_skills', words: ['skill'] },
+  { key: 'job_overview', words: ['overview', 'about the role', 'about this role', 'the role', 'summary', 'about the position'] },
+];
+
+// A line "looks like a header" (as opposed to a sentence of body text) when
+// it's short and doesn't end the way a sentence normally would — a real
+// header can still end in ":" (headers often do), just not in "." "," or ";".
+function isHeaderShaped(line) {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.length > 60) return false;
+  if (BULLET_MARKER.test(trimmed) || NUMBER_MARKER.test(trimmed) || LETTER_MARKER.test(trimmed)) return false;
+  return !/[.,;]\s*$/.test(trimmed);
+}
+
+function classifyHeaderLine(lineNorm) {
+  for (const { key, words } of HEADER_KEYWORDS) {
+    if (words.some((w) => lineNorm.includes(w))) return key;
+  }
+  return null;
 }
 
 // Ambil isi value setelah label di satu baris, misal dari
@@ -229,6 +287,18 @@ function parseLines(lines) {
         currentKey = null;
       }
       continue;
+    }
+
+    // No exact label matched this line — if it's shaped like a section
+    // header, try the looser keyword classifier before giving up on it.
+    if (isHeaderShaped(line)) {
+      const guessedKey = classifyHeaderLine(lineNorm);
+      if (guessedKey) {
+        sawAnyLabel = true;
+        flush();
+        currentKey = guessedKey;
+        continue;
+      }
     }
 
     if (!sawAnyLabel && !currentKey && !titleCandidate) {
