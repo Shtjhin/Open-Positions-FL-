@@ -105,8 +105,16 @@
         </div>
         <div class="field">
           <label>Salary Range</label>
-          <div class="input-row">
-            <input id="f_salaryRange" placeholder="e.g. Rp 15,000,000 - Rp 20,000,000" />
+          <div class="input-row salary-row">
+            <select id="f_salaryCurrency">
+              <option value="Rp">Rp</option>
+              <option value="USD">USD</option>
+              <option value="SGD">SGD</option>
+              <option value="Other">Other</option>
+            </select>
+            <input id="f_salaryMin" placeholder="Min, e.g. 15.000.000" inputmode="numeric" />
+            <span class="range-sep">-</span>
+            <input id="f_salaryMax" placeholder="Max, e.g. 20.000.000" inputmode="numeric" />
             <select id="f_salaryType">
               <option value="">Type</option>
               <option value="Nett">Nett</option>
