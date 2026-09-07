@@ -368,3 +368,48 @@ tr:hover td { background: var(--card-alt); }
 .bullet-list li:last-child {
   margin-bottom: 0;
 }
+
+.bullet-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.bullet-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.bullet-row input { flex: 1; min-width: 0; }
+.bullet-row .bullet-handle {
+  color: var(--muted);
+  font-size: 13px;
+  width: 14px;
+  flex-shrink: 0;
+  text-align: center;
+  user-select: none;
+}
+.bullet-remove-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+}
+.bullet-remove-btn:hover { background: var(--red-bg); color: var(--red); border-color: var(--red); }
+.bullet-add-btn { font-size: 13px; padding: 7px 12px; }
+
+/* Ensure native <select> dropdown popups stay legible against the dark
+   theme in browsers that honor per-option styling (some render the popup
+   with the select's light text color on a default light background,
+   making the options unreadable/unusable otherwise). */
+select option {
+  background: #1c1c20;
+  color: #f2ede2;
+}
