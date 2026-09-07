@@ -387,18 +387,18 @@ app.patch('/api/jobs/:id', requireAdmin, async (req, res) => {
     assignedTo: 'assigned_to', assignedToAll: 'assigned_to_all',
   };
 
+  // Assigning to "all freelancers" and assigning to one specific freelancer
+  // are mutually exclusive. The frontend already sends assignedTo: null
+  // whenever assignedToAll is true, so a single pass over fieldMap is
+  // enough — a second, separate push of "assigned_to = ..." here used to
+  // duplicate that same column in one UPDATE statement, which Postgres
+  // rejects outright ("multiple assignments to same column"), surfacing as
+  // a plain 500 error whenever a job was assigned to "All Freelancers".
   for (const [clientKey, column] of Object.entries(fieldMap)) {
     if (!(clientKey in body)) continue;
     if (clientKey === 'status' && !['open', 'closed'].includes(body.status)) continue;
     updates.push(`${column} = $${i++}`);
     values.push(body[clientKey]);
-  }
-
-  // Assigning to "all freelancers" and assigning to one specific freelancer
-  // are mutually exclusive — keep the two columns in sync.
-  if ('assignedToAll' in body && body.assignedToAll) {
-    updates.push(`assigned_to = $${i++}`);
-    values.push(null);
   }
 
   if (!updates.length) return res.status(400).json({ error: 'No valid changes given.' });
