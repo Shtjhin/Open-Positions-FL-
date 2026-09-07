@@ -42,8 +42,15 @@ const FIELD_DEFS = [
   { key: 'job_overview', labels: ['job overview', 'position overview', 'role overview'] },
   // "Job Responsibilities" is what some templates call the actual bulleted
   // description content — recognized as an alias for job_description below.
-  { key: 'job_description', labels: ['job descriptions', 'job description', 'job responsibilities'] },
-  { key: 'job_requirements', labels: ['job requirements', 'job requirement'] },
+  // Some of Sherly's simpler "job ad" style PDFs (just a title + two bullet
+  // sections, no full intake form) use the bare word "Responsibilities" as
+  // the section header instead, so that's recognized too.
+  { key: 'job_description', labels: ['job descriptions', 'job description', 'job responsibilities', 'responsibilities'] },
+  // Those same simple job-ad PDFs label the second section just
+  // "Requirements" or "Qualification(s)" with no "Job" in front — recognized
+  // as aliases here so that content doesn't fall through and get glued onto
+  // the end of Job Description instead.
+  { key: 'job_requirements', labels: ['job requirements', 'job requirement', 'requirements', 'requirement', 'qualifications', 'qualification'] },
   { key: 'preferred_skills', labels: ['preferred skills', 'preferred skill'] },
   { key: 'special_requirements', labels: ['special requirements', 'special requirement'] },
   { key: 'salary_range', labels: ['salary range'] },
@@ -72,7 +79,13 @@ const LETTER_MARKER = /^[\s]*\(?[a-zA-Z][.).]\s+/;
 const INLINE_MARKER_SPLIT = /(?=(?:^|\s{2,})(?:[-*•●▪‣·○]\s*|\(?\d{1,2}[.).]\s+|\(?[a-zA-Z][.).]\s+))/g;
 
 function stripBulletMarker(line) {
-  return line.replace(BULLET_MARKER, '').replace(NUMBER_MARKER, '').replace(LETTER_MARKER, '').trim();
+  // PDF text extraction joins words that were visually spaced apart
+  // (justified text, table cell gaps) with plain single spaces item-by-item,
+  // which can leave doubled-up spaces in the middle of a sentence (e.g.
+  // "supervise  utilities construction" instead of "supervise utilities
+  // construction"). Collapsing runs of spaces/tabs here cleans that up
+  // without touching the newlines that separate points.
+  return line.replace(BULLET_MARKER, '').replace(NUMBER_MARKER, '').replace(LETTER_MARKER, '').replace(/[ \t]{2,}/g, ' ').trim();
 }
 
 function cleanBulletText(raw) {
@@ -151,6 +164,15 @@ function parseLines(lines) {
 
   let currentKey = null;
   let buffer = [];
+  // Sherly also uses simpler "job ad" style PDFs — just a title line
+  // followed straight into "Job Description" / "Requirements" sections,
+  // with no "Job Title :" row at all. Without any label to hang the title
+  // off of, job_title used to come out blank. Capture the very first line
+  // of the file, before any recognized label has been seen, as a fallback —
+  // it's only ever used at the end if the real "Job Title" label never
+  // showed up anywhere in the document.
+  let titleCandidate = null;
+  let sawAnyLabel = false;
 
   const flush = () => {
     if (currentKey) {
@@ -180,6 +202,7 @@ function parseLines(lines) {
 
     const match = matchLabelAtStart(lineNorm);
     if (match) {
+      sawAnyLabel = true;
       flush();
       currentKey = match.key;
 
@@ -206,15 +229,26 @@ function parseLines(lines) {
       continue;
     }
 
+    if (!sawAnyLabel && !currentKey && !titleCandidate) {
+      titleCandidate = line.trim();
+      continue;
+    }
+
     if (currentKey) {
       buffer.push(line.trim());
     }
   }
   flush();
 
-  // Strip stray wrapping quotes that sometimes come through from Excel exports.
+  if (!result.job_title && titleCandidate) {
+    result.job_title = titleCandidate;
+  }
+
+  // Strip stray wrapping quotes that sometimes come through from Excel
+  // exports, and collapse any doubled-up spaces left over from PDF text
+  // extraction (newlines between points are untouched).
   for (const key of Object.keys(result)) {
-    result[key] = result[key].replace(/^"+|"+$/g, '').trim();
+    result[key] = result[key].replace(/^"+|"+$/g, '').replace(/[ \t]{2,}/g, ' ').trim();
   }
 
   // Detect Nett/Gross inside the Salary Range text (e.g. "Rp 10jt - 15jt (Nett)")
@@ -279,18 +313,77 @@ async function extractPdfLines(buffer) {
     const page = await doc.getPage(pageNum);
     const content = await page.getTextContent();
 
-    let lastY = null;
-    let currentLine = '';
-    for (const item of content.items) {
-      const y = item.transform[5];
-      if (lastY !== null && Math.abs(y - lastY) > 2) {
-        lines.push(currentLine);
-        currentLine = '';
+    // pdfjs hands back text items in whatever order the PDF's content
+    // stream stores them, which isn't always left-to-right/top-to-bottom —
+    // sort by Y (top to bottom) then X (left to right) so a row reads
+    // correctly even if the source PDF emitted its cells/runs out of order.
+    const items = content.items
+      .filter((it) => it.str !== undefined && it.str !== '')
+      .map((it) => ({ str: it.str, x: it.transform[4], y: it.transform[5], width: it.width || 0 }))
+      .sort((a, b) => b.y - a.y || a.x - b.x);
+
+    // Group items into visual rows (same Y, within a small tolerance),
+    // joining each row's text left to right.
+    const rows = [];
+    let currentRow = null;
+    for (const it of items) {
+      if (!currentRow || Math.abs(it.y - currentRow.y) > 2) {
+        currentRow = { y: it.y, items: [] };
+        rows.push(currentRow);
       }
-      currentLine += (currentLine && !currentLine.endsWith(' ') ? ' ' : '') + item.str;
-      lastY = y;
+      currentRow.items.push(it);
     }
-    if (currentLine.trim()) lines.push(currentLine);
+    const rowTexts = rows
+      .map((row) => {
+        row.items.sort((a, b) => a.x - b.x);
+        // Only insert a space between two items when there's an actual
+        // horizontal gap between them — most word breaks already carry
+        // their own explicit space item, so blindly inserting one between
+        // every pair of items (the old approach) doubled up spaces and even
+        // padded gapless punctuation like "(Utilities)" into "( Utilities )".
+        let text = '';
+        let lastEndX = null;
+        for (const it of row.items) {
+          if (lastEndX !== null && it.x - lastEndX > 1 && !text.endsWith(' ')) {
+            text += ' ';
+          }
+          text += it.str;
+          lastEndX = it.x + it.width;
+        }
+        return { y: row.y, text: text.trim() };
+      })
+      .filter((r) => r.text);
+
+    // A row that's just the word-wrapped continuation of the same bullet or
+    // paragraph sits one normal "line height" below the row before it; a
+    // new bullet, or a section header (e.g. a bare "Requirements" on
+    // Sherly's simpler job-ad PDFs, with no bullet marker of its own),
+    // follows a distinctly bigger gap — typically about double. Rows that
+    // start with an actual bullet/number/letter marker are always treated
+    // as a hard break regardless of gap size.
+    const gaps = [];
+    for (let i = 1; i < rowTexts.length; i++) gaps.push(rowTexts[i - 1].y - rowTexts[i].y);
+    const sortedGaps = gaps.filter((g) => g > 0).sort((a, b) => a - b);
+    const typicalGap = sortedGaps.length ? sortedGaps[Math.floor(sortedGaps.length / 2)] : 0;
+
+    const pageLines = [];
+    for (let i = 0; i < rowTexts.length; i++) {
+      const row = rowTexts[i];
+      const hasMarker = BULLET_MARKER.test(row.text) || NUMBER_MARKER.test(row.text) || LETTER_MARKER.test(row.text);
+      const gap = i > 0 ? rowTexts[i - 1].y - row.y : null;
+      const isContinuation = i > 0 && !hasMarker && pageLines.length && typicalGap > 0 && gap <= typicalGap * 1.4;
+      if (isContinuation) {
+        // A hyphenated word that happens to break right at the line wrap
+        // (e.g. "high-" / "performing") should glue back together with no
+        // space, same as an ordinary hyphenated compound would within a
+        // single line.
+        const prev = pageLines[pageLines.length - 1];
+        pageLines[pageLines.length - 1] = prev.endsWith('-') ? prev + row.text : prev + ' ' + row.text;
+      } else {
+        pageLines.push(row.text);
+      }
+    }
+    lines.push(...pageLines);
   }
   return lines;
 }
