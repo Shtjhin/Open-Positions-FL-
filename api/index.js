@@ -96,7 +96,7 @@ function jobToClient(job, users) {
   const assignee = users.find((u) => u.id === job.assigned_to);
   return {
     id: job.id,
-    jobCode: `${getPositionAbbr(job.job_title)}-${String(job.id).padStart(3, '0')}`,
+    jobCode: `${getPositionAbbr(job.job_title)}-${String(job.job_seq || job.id).padStart(3, '0')}`,
     jobTitle: job.job_title,
     department: job.department,
     directReportTo: job.direct_report_to,
@@ -304,8 +304,9 @@ app.post('/api/jobs', requireAdmin, async (req, res) => {
       placement, office_hours, working_days, travel_required, industry, industry_confidence,
       job_overview, job_description, job_requirements, preferred_skills, special_requirements,
       salary_range, salary_type, additional_notes, status, assigned_to, assigned_to_all,
-      source_filename, created_by
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+      source_filename, created_by, job_seq
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,
+      (SELECT COALESCE(MAX(job_seq), 0) + 1 FROM jobs))
     RETURNING *`,
     [
       f.jobTitle || '', f.department || '', f.directReportTo || '',
