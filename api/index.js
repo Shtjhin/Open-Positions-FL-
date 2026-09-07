@@ -78,11 +78,25 @@ function freelancerCanAccess(job, userId) {
   return job.assigned_to_all || job.assigned_to === userId;
 }
 
+// Builds the position-abbreviation part of a job code from the job title,
+// e.g. "Sales Manager – Modern Trade" -> "SM", "HR Manager" -> "HM". Only the
+// primary title (before any " - " suffix or parenthetical) is considered, and
+// common filler words are skipped so they don't shift which words get used.
+const TITLE_STOPWORDS = new Set(['of', 'the', 'and', 'for', 'to', 'in', '&', 'a', 'an']);
+function getPositionAbbr(title) {
+  if (!title) return 'JP';
+  const primary = title.split(/\s[–—-]\s|\(/)[0].trim();
+  const words = primary.split(/\s+/).filter((w) => w && !TITLE_STOPWORDS.has(w.toLowerCase()));
+  if (words.length === 0) return 'JP';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+
 function jobToClient(job, users) {
   const assignee = users.find((u) => u.id === job.assigned_to);
   return {
     id: job.id,
-    jobCode: 'MTM-' + String(job.id).padStart(4, '0'),
+    jobCode: `${getPositionAbbr(job.job_title)}-${String(job.id).padStart(3, '0')}`,
     jobTitle: job.job_title,
     department: job.department,
     directReportTo: job.direct_report_to,
@@ -418,6 +432,12 @@ app.post('/api/jobs/:id/notes', requireAdmin, async (req, res) => {
     [req.params.id, req.session.user.id, note.trim()]
   );
   res.status(201).json({ note: { ...inserted[0], author_name: req.session.user.name } });
+});
+
+// Deleting a note is admin-only too.
+app.delete('/api/jobs/:id/notes/:noteId', requireAdmin, async (req, res) => {
+  await pool.query('DELETE FROM job_notes WHERE id = $1 AND job_id = $2', [req.params.noteId, req.params.id]);
+  res.json({ ok: true });
 });
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Endpoint not found.' }));
