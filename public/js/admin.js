@@ -260,10 +260,10 @@ function fillPreviewForm(data) {
   document.getElementById('f_salaryRange').value = f.salaryRange || '';
   setSelectValue('f_salaryType', f.salaryType || '');
   document.getElementById('f_additionalNotes').value = f.additionalNotes || '';
-  document.getElementById('f_jobDescription').value = f.jobDescription || '';
-  document.getElementById('f_jobRequirements').value = f.jobRequirements || '';
-  document.getElementById('f_preferredSkills').value = f.preferredSkills || '';
-  document.getElementById('f_specialRequirements').value = f.specialRequirements || '';
+  BULLET_FIELDS.forEach(({ key, label }) => {
+    document.getElementById(`f_${key}_wrap`).innerHTML = renderBulletEditorField('f', key, label, f[key]);
+  });
+  wireBulletEditors('f');
 
   setSelectValue('f_industry', data.industry || 'Not Identified');
   const confNote = document.getElementById('confidenceNote');
@@ -319,10 +319,10 @@ async function handleSaveJob() {
     additionalNotes: document.getElementById('f_additionalNotes').value.trim(),
     industry: document.getElementById('f_industry').value,
     industryConfidence: lastParsedPreview ? lastParsedPreview.industryConfidence : 'low',
-    jobDescription: document.getElementById('f_jobDescription').value.trim(),
-    jobRequirements: document.getElementById('f_jobRequirements').value.trim(),
-    preferredSkills: document.getElementById('f_preferredSkills').value.trim(),
-    specialRequirements: document.getElementById('f_specialRequirements').value.trim(),
+    jobDescription: readBulletEditor('f', 'jobDescription'),
+    jobRequirements: readBulletEditor('f', 'jobRequirements'),
+    preferredSkills: readBulletEditor('f', 'preferredSkills'),
+    specialRequirements: readBulletEditor('f', 'specialRequirements'),
     assignedTo: assign.assignedTo,
     assignedToAll: assign.assignedToAll,
     status: document.getElementById('f_status').value,
@@ -340,6 +340,89 @@ async function handleSaveJob() {
   } catch (e) {
     errBox.innerHTML = `<div class="error-msg">${escapeHtml(e.message)}</div>`;
   }
+}
+
+// ---------- BULLET EDITOR (Job Description / Requirements / Skills / Special Requirements) ----------
+// A small list editor used in place of a plain textarea for the four
+// long-text fields: each point gets its own row with a remove button, plus
+// an "Add point" button, so the admin never has to hand-manage newlines.
+
+const BULLET_FIELDS = [
+  { key: 'jobDescription', label: 'Job Descriptions' },
+  { key: 'jobRequirements', label: 'Job Requirements' },
+  { key: 'preferredSkills', label: 'Preferred Skills' },
+  { key: 'specialRequirements', label: 'Special Requirements' },
+];
+
+function splitToBullets(text) {
+  return (text || '')
+    .split('\n')
+    .map((l) => l.replace(/^[\s]*[-*•●▪‣·○]\s*/, '').trim())
+    .filter(Boolean);
+}
+
+function renderBulletRow(value) {
+  return `
+    <div class="bullet-row">
+      <span class="bullet-handle">&bull;</span>
+      <input type="text" value="${escapeHtml(value)}" placeholder="Add a point..." />
+      <button type="button" class="bullet-remove-btn" title="Remove this point">&times;</button>
+    </div>
+  `;
+}
+
+// Renders a full field block (label + editable rows + "Add point" button)
+// for a given id prefix ("f" for the upload form, "d" for the detail modal).
+function renderBulletEditorField(prefix, key, label, text) {
+  const points = splitToBullets(text);
+  const rows = points.length ? points.map(renderBulletRow).join('') : renderBulletRow('');
+  return `
+    <label>${label}</label>
+    <div class="bullet-editor" id="${prefix}_${key}_editor">${rows}</div>
+    <button type="button" class="secondary bullet-add-btn" data-bullet-add="${prefix}_${key}_editor">+ Add point</button>
+  `;
+}
+
+function wireBulletEditorRows(editor) {
+  editor.querySelectorAll('.bullet-remove-btn').forEach((btn) => {
+    btn.onclick = () => {
+      const row = btn.closest('.bullet-row');
+      // Always keep at least one (possibly empty) row so the list never
+      // disappears entirely.
+      if (editor.querySelectorAll('.bullet-row').length > 1) {
+        row.remove();
+      } else {
+        row.querySelector('input').value = '';
+      }
+    };
+  });
+}
+
+// Wires up every bullet editor + "Add point" button for a given prefix.
+// Call this once after the fields' HTML has been placed in the DOM.
+function wireBulletEditors(prefix) {
+  BULLET_FIELDS.forEach(({ key }) => {
+    const editor = document.getElementById(`${prefix}_${key}_editor`);
+    if (editor) wireBulletEditorRows(editor);
+  });
+  document.querySelectorAll(`[data-bullet-add^="${prefix}_"]`).forEach((btn) => {
+    btn.onclick = () => {
+      const editor = document.getElementById(btn.dataset.bulletAdd);
+      editor.insertAdjacentHTML('beforeend', renderBulletRow(''));
+      wireBulletEditorRows(editor);
+      const inputs = editor.querySelectorAll('input');
+      inputs[inputs.length - 1].focus();
+    };
+  });
+}
+
+function readBulletEditor(prefix, key) {
+  const editor = document.getElementById(`${prefix}_${key}_editor`);
+  if (!editor) return '';
+  return Array.from(editor.querySelectorAll('input'))
+    .map((i) => i.value.trim())
+    .filter(Boolean)
+    .join('\n');
 }
 
 // ---------- JOB EDIT FIELDS (shared by the detail modal) ----------
@@ -407,22 +490,9 @@ function renderJobEditFields(prefix, job = {}) {
       <label>Additional Notes</label>
       <textarea id="${prefix}_additionalNotes" rows="3" placeholder="Anything else worth noting, kept separate from the salary range">${escapeHtml(job.additionalNotes || '')}</textarea>
     </div>
-    <div class="field">
-      <label>Job Descriptions</label>
-      <textarea id="${prefix}_jobDescription" rows="6" placeholder="One point per line">${escapeHtml(job.jobDescription || '')}</textarea>
-    </div>
-    <div class="field">
-      <label>Job Requirements</label>
-      <textarea id="${prefix}_jobRequirements" rows="5" placeholder="One point per line">${escapeHtml(job.jobRequirements || '')}</textarea>
-    </div>
-    <div class="field">
-      <label>Preferred Skills</label>
-      <textarea id="${prefix}_preferredSkills" rows="4" placeholder="One point per line">${escapeHtml(job.preferredSkills || '')}</textarea>
-    </div>
-    <div class="field">
-      <label>Special Requirements</label>
-      <textarea id="${prefix}_specialRequirements" rows="4" placeholder="One point per line">${escapeHtml(job.specialRequirements || '')}</textarea>
-    </div>
+    ${BULLET_FIELDS.map(({ key, label }) => `
+      <div class="field">${renderBulletEditorField(prefix, key, label, job[key])}</div>
+    `).join('')}
   `;
 }
 
@@ -440,10 +510,10 @@ function readJobEditFields(prefix) {
     salaryType: document.getElementById(`${prefix}_salaryType`).value,
     industry: document.getElementById(`${prefix}_industry`).value,
     additionalNotes: document.getElementById(`${prefix}_additionalNotes`).value.trim(),
-    jobDescription: document.getElementById(`${prefix}_jobDescription`).value.trim(),
-    jobRequirements: document.getElementById(`${prefix}_jobRequirements`).value.trim(),
-    preferredSkills: document.getElementById(`${prefix}_preferredSkills`).value.trim(),
-    specialRequirements: document.getElementById(`${prefix}_specialRequirements`).value.trim(),
+    jobDescription: readBulletEditor(prefix, 'jobDescription'),
+    jobRequirements: readBulletEditor(prefix, 'jobRequirements'),
+    preferredSkills: readBulletEditor(prefix, 'preferredSkills'),
+    specialRequirements: readBulletEditor(prefix, 'specialRequirements'),
   };
 }
 
@@ -546,6 +616,7 @@ async function openJobDetail(id) {
   `;
 
   wireAssignControls('d');
+  wireBulletEditors('d');
 
   document.getElementById('d_saveBtn').onclick = async () => {
     const errBox = document.getElementById('d_saveErr');
