@@ -5,7 +5,21 @@ const XLSX = require('xlsx');
 let pdfjsLibPromise = null;
 function getPdfjs() {
   if (!pdfjsLibPromise) {
-    pdfjsLibPromise = import('pdfjs-dist/legacy/build/pdf.mjs');
+    pdfjsLibPromise = import('pdfjs-dist/legacy/build/pdf.mjs').then((lib) => {
+      // pdfjs-dist tries to spin up a "fake worker" in Node by dynamically
+      // resolving pdf.worker.mjs at runtime. Vercel's serverless build only
+      // bundles files it can see being referenced statically, so that
+      // dynamic lookup isn't included and fails at runtime with "Cannot
+      // find module '.../pdf.worker.mjs'". Pointing workerSrc at it via
+      // require.resolve() (a static reference Vercel's bundler does trace)
+      // makes sure the worker file actually ships with the deployment.
+      try {
+        lib.GlobalWorkerOptions.workerSrc = require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs');
+      } catch (e) {
+        // If this ever fails, fall back to whatever pdfjs-dist does by default.
+      }
+      return lib;
+    });
   }
   return pdfjsLibPromise;
 }
