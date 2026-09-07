@@ -342,6 +342,111 @@ async function handleSaveJob() {
   }
 }
 
+// ---------- JOB EDIT FIELDS (shared by the detail modal) ----------
+
+// Renders the full set of editable job fields (everything except assign/status,
+// which have their own section) for a given id prefix, pre-filled from `job`.
+function renderJobEditFields(prefix, job = {}) {
+  return `
+    <div class="grid-2">
+      <div class="field">
+        <label>Job Title</label>
+        <input id="${prefix}_jobTitle" value="${escapeHtml(job.jobTitle || '')}" />
+      </div>
+      <div class="field">
+        <label>Department</label>
+        <input id="${prefix}_department" value="${escapeHtml(job.department || '')}" />
+      </div>
+      <div class="field">
+        <label>Direct Report To</label>
+        <input id="${prefix}_directReportTo" value="${escapeHtml(job.directReportTo || '')}" />
+      </div>
+      <div class="field">
+        <label>Position Type</label>
+        <select id="${prefix}_positionType">
+          ${['Full Time', 'Contract', 'Part Time', 'Project Based'].map((o) => `<option value="${o}" ${job.positionType === o ? 'selected' : ''}>${o}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>Placement</label>
+        <input id="${prefix}_placement" value="${escapeHtml(job.placement || '')}" />
+      </div>
+      <div class="field">
+        <label>Office Hours</label>
+        <input id="${prefix}_officeHours" value="${escapeHtml(job.officeHours || '')}" />
+      </div>
+      <div class="field">
+        <label>Working Days</label>
+        <input id="${prefix}_workingDays" value="${escapeHtml(job.workingDays || '')}" placeholder="e.g. Monday - Friday" />
+      </div>
+      <div class="field">
+        <label>Travel Required</label>
+        <select id="${prefix}_travelRequired">
+          ${['Yes', 'No'].map((o) => `<option value="${o}" ${job.travelRequired === o ? 'selected' : ''}>${o}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>Salary Range</label>
+        <div class="input-row">
+          <input id="${prefix}_salaryRange" value="${escapeHtml(job.salaryRange || '')}" placeholder="e.g. Rp 15,000,000 - Rp 20,000,000" />
+          <select id="${prefix}_salaryType">
+            <option value="">Type</option>
+            <option value="Nett" ${job.salaryType === 'Nett' ? 'selected' : ''}>Nett</option>
+            <option value="Gross" ${job.salaryType === 'Gross' ? 'selected' : ''}>Gross</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Industry</label>
+        <select id="${prefix}_industry">
+          ${INDUSTRY_OPTIONS.map((o) => `<option value="${escapeHtml(o)}" ${job.industry === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Additional Notes</label>
+      <textarea id="${prefix}_additionalNotes" rows="3" placeholder="Anything else worth noting, kept separate from the salary range">${escapeHtml(job.additionalNotes || '')}</textarea>
+    </div>
+    <div class="field">
+      <label>Job Descriptions</label>
+      <textarea id="${prefix}_jobDescription" rows="6" placeholder="One point per line">${escapeHtml(job.jobDescription || '')}</textarea>
+    </div>
+    <div class="field">
+      <label>Job Requirements</label>
+      <textarea id="${prefix}_jobRequirements" rows="5" placeholder="One point per line">${escapeHtml(job.jobRequirements || '')}</textarea>
+    </div>
+    <div class="field">
+      <label>Preferred Skills</label>
+      <textarea id="${prefix}_preferredSkills" rows="4" placeholder="One point per line">${escapeHtml(job.preferredSkills || '')}</textarea>
+    </div>
+    <div class="field">
+      <label>Special Requirements</label>
+      <textarea id="${prefix}_specialRequirements" rows="4" placeholder="One point per line">${escapeHtml(job.specialRequirements || '')}</textarea>
+    </div>
+  `;
+}
+
+function readJobEditFields(prefix) {
+  return {
+    jobTitle: document.getElementById(`${prefix}_jobTitle`).value.trim(),
+    department: document.getElementById(`${prefix}_department`).value.trim(),
+    directReportTo: document.getElementById(`${prefix}_directReportTo`).value.trim(),
+    positionType: document.getElementById(`${prefix}_positionType`).value,
+    placement: document.getElementById(`${prefix}_placement`).value.trim(),
+    officeHours: document.getElementById(`${prefix}_officeHours`).value.trim(),
+    workingDays: document.getElementById(`${prefix}_workingDays`).value.trim(),
+    travelRequired: document.getElementById(`${prefix}_travelRequired`).value,
+    salaryRange: document.getElementById(`${prefix}_salaryRange`).value.trim(),
+    salaryType: document.getElementById(`${prefix}_salaryType`).value,
+    industry: document.getElementById(`${prefix}_industry`).value,
+    additionalNotes: document.getElementById(`${prefix}_additionalNotes`).value.trim(),
+    jobDescription: document.getElementById(`${prefix}_jobDescription`).value.trim(),
+    jobRequirements: document.getElementById(`${prefix}_jobRequirements`).value.trim(),
+    preferredSkills: document.getElementById(`${prefix}_preferredSkills`).value.trim(),
+    specialRequirements: document.getElementById(`${prefix}_specialRequirements`).value.trim(),
+  };
+}
+
 // ---------- JOB LIST ----------
 
 async function loadJobs() {
@@ -405,24 +510,11 @@ async function openJobDetail(id) {
   document.getElementById('detailTitle').textContent = job.jobTitle;
 
   document.getElementById('detailBody').innerHTML = `
-    <div class="grid-2">
-      <div class="detail-row"><div class="k">Department</div><div class="v">${escapeHtml(job.department || '-')}</div></div>
-      <div class="detail-row"><div class="k">Direct Report To</div><div class="v">${escapeHtml(job.directReportTo || '-')}</div></div>
-      <div class="detail-row"><div class="k">Position Type</div><div class="v">${escapeHtml(job.positionType || '-')}</div></div>
-      <div class="detail-row"><div class="k">Placement</div><div class="v">${escapeHtml(job.placement || '-')}</div></div>
-      <div class="detail-row"><div class="k">Office Hours</div><div class="v">${escapeHtml(job.officeHours || '-')}</div></div>
-      <div class="detail-row"><div class="k">Working Days</div><div class="v">${escapeHtml(job.workingDays || '-')}</div></div>
-      <div class="detail-row"><div class="k">Travel Required</div><div class="v">${escapeHtml(job.travelRequired || '-')}</div></div>
-      <div class="detail-row"><div class="k">Salary Range</div><div class="v">${escapeHtml(job.salaryRange || '-')}${job.salaryType ? ` <span class="hint">(${escapeHtml(job.salaryType)})</span>` : ''}</div></div>
-      <div class="detail-row"><div class="k">Industry</div><div class="v">${escapeHtml(job.industry)}</div></div>
-    </div>
-    <div class="detail-row"><div class="k">Additional Notes</div><div class="v">${escapeHtml(job.additionalNotes || '-')}</div></div>
-    <div class="detail-row"><div class="k">Job Description</div>${renderBullets(job.jobDescription)}</div>
-    <div class="detail-row"><div class="k">Job Requirements</div>${renderBullets(job.jobRequirements)}</div>
-    <div class="detail-row"><div class="k">Preferred Skills</div>${renderBullets(job.preferredSkills)}</div>
-    <div class="detail-row"><div class="k">Special Requirements</div>${renderBullets(job.specialRequirements)}</div>
+    <p class="hint">Edit any field below, then click Save Changes.</p>
+    ${renderJobEditFields('d', job)}
 
-    <div class="grid-2" style="margin-top:16px">
+    <h3>Assign &amp; Status</h3>
+    <div class="grid-2">
       <div class="field">
         <label>Assign To</label>
         ${renderAssignControls('d', { assignedTo: job.assignedTo, assignedToAll: job.assignedToAll })}
@@ -435,6 +527,7 @@ async function openJobDetail(id) {
         </select>
       </div>
     </div>
+    <div id="d_saveErr"></div>
     <button id="d_saveBtn">Save Changes</button>
 
     <h3>Notes</h3>
@@ -455,17 +548,29 @@ async function openJobDetail(id) {
   wireAssignControls('d');
 
   document.getElementById('d_saveBtn').onclick = async () => {
+    const errBox = document.getElementById('d_saveErr');
+    errBox.innerHTML = '';
+    const fields = readJobEditFields('d');
+    if (!fields.jobTitle) {
+      errBox.innerHTML = '<div class="error-msg">Job Title is required.</div>';
+      return;
+    }
     const assign = readAssignControls('d');
-    await api(`/api/jobs/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        assignedTo: assign.assignedTo,
-        assignedToAll: assign.assignedToAll,
-        status: document.getElementById('d_status').value,
-      }),
-    });
-    document.getElementById('detailModal').style.display = 'none';
-    loadJobs();
+    try {
+      await api(`/api/jobs/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          ...fields,
+          assignedTo: assign.assignedTo,
+          assignedToAll: assign.assignedToAll,
+          status: document.getElementById('d_status').value,
+        }),
+      });
+      document.getElementById('detailModal').style.display = 'none';
+      loadJobs();
+    } catch (e) {
+      errBox.innerHTML = `<div class="error-msg">${escapeHtml(e.message)}</div>`;
+    }
   };
   document.getElementById('d_addNoteBtn').onclick = async () => {
     const note = document.getElementById('d_newNote').value.trim();
