@@ -79,6 +79,24 @@ async function initSchema() {
     ALTER TABLE jobs ADD COLUMN IF NOT EXISTS salary_type TEXT;
     ALTER TABLE jobs ADD COLUMN IF NOT EXISTS assigned_to_all BOOLEAN NOT NULL DEFAULT false;
     ALTER TABLE jobs ADD COLUMN IF NOT EXISTS job_overview TEXT;
+    ALTER TABLE jobs ADD COLUMN IF NOT EXISTS job_seq INTEGER;
+  `);
+
+  // job_seq is the clean "1, 2, 3, ..." number used in the job code (e.g.
+  // SM-001) — independent of the raw `id` column, which can have gaps from
+  // deleted test/demo rows and would otherwise make the first real job show
+  // up as e.g. SM-006 instead of SM-001. New jobs get their job_seq set
+  // explicitly at insert time (see POST /api/jobs), so this backfill only
+  // ever needs to run once, for rows that existed before this column did —
+  // it's a no-op once every row has a job_seq, safe to run on every cold start.
+  await pool.query(`
+    UPDATE jobs SET job_seq = sub.rn
+    FROM (
+      SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn
+      FROM jobs
+      WHERE job_seq IS NULL
+    ) sub
+    WHERE jobs.id = sub.id AND jobs.job_seq IS NULL;
   `);
 }
 
