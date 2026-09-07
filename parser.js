@@ -16,7 +16,6 @@ const FIELD_DEFS = [
   { key: 'job_title', labels: ['job title'] },
   { key: 'department', labels: ['department'] },
   { key: 'direct_report_to', labels: ['direct report to', 'direct reports to'] },
-  { key: 'org_structure_position', labels: ['position in org structure chart', 'position in org.structure chart', 'org structure position'] },
   { key: 'position_type', labels: ['position type'] },
   { key: 'placement', labels: ['placement'] },
   { key: 'office_hours', labels: ['office hours'] },
@@ -156,7 +155,7 @@ function parseLines(lines) {
   // onto whatever single-value field came right before it in the file,
   // corrupting it — that's what was happening to Direct Report To.
   const SINGLE_LINE_KEYS = new Set([
-    'job_title', 'department', 'direct_report_to', 'org_structure_position',
+    'job_title', 'department', 'direct_report_to',
     'placement', 'office_hours', 'working_days', 'salary_range', 'additional_notes',
   ]);
 
