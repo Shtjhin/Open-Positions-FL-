@@ -85,7 +85,6 @@ function jobToClient(job, users) {
     jobTitle: job.job_title,
     department: job.department,
     directReportTo: job.direct_report_to,
-    orgStructurePosition: job.org_structure_position,
     positionType: job.position_type,
     placement: job.placement,
     officeHours: job.office_hours,
@@ -257,7 +256,6 @@ app.post('/api/jobs/parse', requireAdmin, upload.single('file'), async (req, res
         jobTitle: fields.job_title,
         department: fields.department,
         directReportTo: fields.direct_report_to,
-        orgStructurePosition: fields.org_structure_position,
         positionType: fields.position_type,
         placement: fields.placement,
         officeHours: fields.office_hours,
@@ -287,15 +285,15 @@ app.post('/api/jobs', requireAdmin, async (req, res) => {
   const assignedToAll = !!f.assignedToAll;
   const { rows } = await pool.query(
     `INSERT INTO jobs (
-      job_title, department, direct_report_to, org_structure_position, position_type,
+      job_title, department, direct_report_to, position_type,
       placement, office_hours, working_days, travel_required, industry, industry_confidence,
       job_overview, job_description, job_requirements, preferred_skills, special_requirements,
       salary_range, salary_type, additional_notes, status, assigned_to, assigned_to_all,
       source_filename, created_by
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
     RETURNING *`,
     [
-      f.jobTitle || '', f.department || '', f.directReportTo || '', f.orgStructurePosition || '',
+      f.jobTitle || '', f.department || '', f.directReportTo || '',
       f.positionType || '', f.placement || '', f.officeHours || '', f.workingDays || '', f.travelRequired || '',
       f.industry || 'Not Identified', f.industryConfidence || 'low',
       f.jobOverview || '', f.jobDescription || '', f.jobRequirements || '', f.preferredSkills || '', f.specialRequirements || '',
@@ -369,7 +367,6 @@ app.patch('/api/jobs/:id', requireAuth, async (req, res) => {
   const allowedForFreelancer = ['status'];
   const fieldMap = {
     jobTitle: 'job_title', department: 'department', directReportTo: 'direct_report_to',
-    orgStructurePosition: 'org_structure_position',
     positionType: 'position_type', placement: 'placement',
     officeHours: 'office_hours', workingDays: 'working_days', travelRequired: 'travel_required', industry: 'industry',
     jobOverview: 'job_overview',
