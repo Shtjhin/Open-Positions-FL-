@@ -112,8 +112,11 @@ async function init() {
     btn.onclick = () => switchTab(btn.dataset.tab);
   });
 
-  const industrySelect = document.getElementById('f_industry');
-  industrySelect.innerHTML = INDUSTRY_OPTIONS.map((i) => `<option value="${escapeHtml(i)}">${escapeHtml(i)}</option>`).join('');
+  // Industry is a free-text input backed by this shared <datalist> of
+  // suggestions — auto-detection is sometimes wrong, so the admin needs to
+  // be able to just type over it instead of being limited to the preset list.
+  document.getElementById('industryOptions').innerHTML =
+    INDUSTRY_OPTIONS.map((i) => `<option value="${escapeHtml(i)}"></option>`).join('');
 
   const filterIndustry = document.getElementById('filterIndustry');
   filterIndustry.innerHTML += INDUSTRY_OPTIONS.map((i) => `<option value="${escapeHtml(i)}">${escapeHtml(i)}</option>`).join('');
@@ -130,6 +133,7 @@ async function init() {
   document.getElementById('filterIndustry').onchange = loadJobs;
 
   document.getElementById('parseBtn').onclick = handleParse;
+  document.getElementById('parseTextBtn').onclick = handleParseText;
   document.getElementById('cancelUploadBtn').onclick = resetUploadForm;
   document.getElementById('saveJobBtn').onclick = handleSaveJob;
 
@@ -335,6 +339,33 @@ async function handleParse() {
   }
 }
 
+// Same flow as handleParse(), but for text pasted into the "Paste job text
+// directly" box instead of an uploaded file — for when Sherly doesn't have
+// a .xlsx/.docx/.pdf on hand (e.g. a job description copy-pasted from an
+// email or chat) and still wants it run through the same label recognition.
+async function handleParseText() {
+  const errBox = document.getElementById('uploadErr');
+  errBox.innerHTML = '';
+  const text = document.getElementById('pasteText').value;
+  if (!text.trim()) {
+    errBox.innerHTML = '<div class="error-msg">Please paste some text first.</div>';
+    return;
+  }
+  const statusEl = document.getElementById('parseStatus');
+  statusEl.textContent = 'Processing text...';
+
+  try {
+    const data = await api('/api/jobs/parse-text', { method: 'POST', body: JSON.stringify({ text }) });
+    lastParsedPreview = data;
+    fillPreviewForm(data);
+    statusEl.textContent = 'Parsed successfully. Check the results below.';
+    document.getElementById('previewCard').style.display = 'block';
+  } catch (e) {
+    statusEl.textContent = '';
+    errBox.innerHTML = `<div class="error-msg">${escapeHtml(e.message)}</div>`;
+  }
+}
+
 function fillPreviewForm(data) {
   const f = data.fields;
   document.getElementById('f_jobTitle').value = f.jobTitle || '';
@@ -354,7 +385,7 @@ function fillPreviewForm(data) {
   });
   wireBulletEditors('f');
 
-  setSelectValue('f_industry', data.industry || 'Not Identified');
+  document.getElementById('f_industry').value = data.industry || 'Not Identified';
   const confNote = document.getElementById('confidenceNote');
   if (data.industryConfidence === 'low') {
     confNote.innerHTML = '<span style="color:#92400e">Low detection confidence — please review and pick manually if needed.</span>';
@@ -406,7 +437,7 @@ async function handleSaveJob() {
     salaryRange: composeSalaryRange('f'),
     salaryType: document.getElementById('f_salaryType').value,
     additionalNotes: document.getElementById('f_additionalNotes').value.trim(),
-    industry: document.getElementById('f_industry').value,
+    industry: document.getElementById('f_industry').value.trim(),
     industryConfidence: lastParsedPreview ? lastParsedPreview.industryConfidence : 'low',
     jobOverview: document.getElementById('f_jobOverview').value.trim(),
     jobDescription: readBulletEditor('f', 'jobDescription'),
@@ -580,10 +611,8 @@ function renderJobEditFields(prefix, job = {}) {
         </div>
       </div>
       <div class="field">
-        <label>Industry</label>
-        <select id="${prefix}_industry">
-          ${INDUSTRY_OPTIONS.map((o) => `<option value="${escapeHtml(o)}" ${job.industry === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-        </select>
+        <label>Industry (type your own or pick a suggestion)</label>
+        <input id="${prefix}_industry" list="industryOptions" value="${escapeHtml(job.industry || '')}" placeholder="e.g. Technology / IT / Software" />
       </div>
     </div>
     <div class="field">
@@ -612,7 +641,7 @@ function readJobEditFields(prefix) {
     travelRequired: document.getElementById(`${prefix}_travelRequired`).value,
     salaryRange: composeSalaryRange(prefix),
     salaryType: document.getElementById(`${prefix}_salaryType`).value,
-    industry: document.getElementById(`${prefix}_industry`).value,
+    industry: document.getElementById(`${prefix}_industry`).value.trim(),
     additionalNotes: document.getElementById(`${prefix}_additionalNotes`).value.trim(),
     jobOverview: document.getElementById(`${prefix}_jobOverview`).value.trim(),
     jobDescription: readBulletEditor(prefix, 'jobDescription'),
