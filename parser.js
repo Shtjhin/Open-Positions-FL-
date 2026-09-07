@@ -16,12 +16,20 @@ const FIELD_DEFS = [
   { key: 'job_title', labels: ['job title'] },
   { key: 'department', labels: ['department'] },
   { key: 'direct_report_to', labels: ['direct report to', 'direct reports to'] },
+  { key: 'org_structure_position', labels: ['position in org structure chart', 'position in org.structure chart', 'org structure position'] },
   { key: 'position_type', labels: ['position type'] },
   { key: 'placement', labels: ['placement'] },
   { key: 'office_hours', labels: ['office hours'] },
   { key: 'working_days', labels: ['working days', 'working day'] },
   { key: 'travel_required', labels: ['travel required'] },
-  { key: 'job_description', labels: ['job descriptions', 'job description', 'job overview', 'position overview', 'role overview'] },
+  // "Job Overview" is a distinct field from the actual description bullets —
+  // some of Sherly's templates give it its own row/label right before "Job
+  // Descriptions" and expect it to stay a separate paragraph, not get mixed
+  // in with the responsibilities list.
+  { key: 'job_overview', labels: ['job overview', 'position overview', 'role overview'] },
+  // "Job Responsibilities" is what some templates call the actual bulleted
+  // description content — recognized as an alias for job_description below.
+  { key: 'job_description', labels: ['job descriptions', 'job description', 'job responsibilities'] },
   { key: 'job_requirements', labels: ['job requirements', 'job requirement'] },
   { key: 'preferred_skills', labels: ['preferred skills', 'preferred skill'] },
   { key: 'special_requirements', labels: ['special requirements', 'special requirement'] },
@@ -139,6 +147,19 @@ function parseLines(lines) {
     buffer = [];
   };
 
+  // Fields whose answer is expected on a single row, right after the label
+  // (Job Title, Placement, Direct Report To, etc.). These are closed
+  // immediately after their inline value is captured, instead of staying
+  // "open" for continuation lines like the long bullet fields do. Without
+  // this, a row whose own label isn't recognized (e.g. a stray "Position in
+  // Org.Structure Chart" row with no matching field) silently gets appended
+  // onto whatever single-value field came right before it in the file,
+  // corrupting it — that's what was happening to Direct Report To.
+  const SINGLE_LINE_KEYS = new Set([
+    'job_title', 'department', 'direct_report_to', 'org_structure_position',
+    'placement', 'office_hours', 'working_days', 'salary_range', 'additional_notes',
+  ]);
+
   for (const rawLine of lines) {
     const line = rawLine.replace(/\r/g, '');
     if (!line.trim()) continue;
@@ -164,6 +185,11 @@ function parseLines(lines) {
 
       const inline = extractInlineValue(line, match.label);
       if (inline) buffer.push(inline);
+
+      if (SINGLE_LINE_KEYS.has(match.key)) {
+        flush();
+        currentKey = null;
+      }
       continue;
     }
 
@@ -192,7 +218,18 @@ function parseLines(lines) {
     }
   }
 
-  // Normalize the four long-text fields into one clean point per line.
+  // Placement is meant to be just the location (e.g. "Jakarta / Head
+  // Office") — some forms tack on a note about travel/exhibitions after an
+  // en dash or hyphen on the same cell (e.g. "... – dengan perjalanan
+  // supplier visit..."). Keep only the location; the note isn't something a
+  // freelancer needs in that field.
+  if (result.placement) {
+    const parts = result.placement.split(/\s[–—-]\s/);
+    if (parts.length > 1) result.placement = parts[0].trim();
+  }
+
+  // Normalize the long-text fields into one clean point per line.
+  result.job_overview = cleanBulletText(result.job_overview);
   result.job_description = cleanBulletText(result.job_description);
   result.job_requirements = cleanBulletText(result.job_requirements);
   result.preferred_skills = cleanBulletText(result.preferred_skills);

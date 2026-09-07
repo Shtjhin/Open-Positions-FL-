@@ -78,6 +78,8 @@ async function initSchema() {
     ALTER TABLE jobs ADD COLUMN IF NOT EXISTS additional_notes TEXT;
     ALTER TABLE jobs ADD COLUMN IF NOT EXISTS salary_type TEXT;
     ALTER TABLE jobs ADD COLUMN IF NOT EXISTS assigned_to_all BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE jobs ADD COLUMN IF NOT EXISTS job_overview TEXT;
+    ALTER TABLE jobs ADD COLUMN IF NOT EXISTS org_structure_position TEXT;
   `);
 }
 
