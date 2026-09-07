@@ -19,7 +19,9 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-session": "^1.19.0",
+    "mammoth": "^1.12.2",
     "multer": "^2.3.0",
+    "node-html-parser": "^9.0.4",
     "pdfjs-dist": "^4.10.38",
     "pg": "^8.23.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"

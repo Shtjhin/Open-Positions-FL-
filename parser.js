@@ -1,4 +1,6 @@
 const XLSX = require('xlsx');
+const mammoth = require('mammoth');
+const { parse: parseHtml } = require('node-html-parser');
 
 // pdfjs-dist v4 cuma tersedia sebagai ESM, jadi di-load pakai dynamic import()
 // dan hasil modulnya di-cache biar tidak di-import ulang tiap request.
@@ -303,6 +305,59 @@ async function parseXlsx(buffer) {
   return parseLines(lines);
 }
 
+// Word docs (.docx) aren't always a table like the Excel intake form — some
+// of Sherly's templates are just paragraphs and bullet lists (like the
+// simpler "job ad" PDFs). mammoth turns the docx into HTML, which we then
+// walk into the same flat "one line per row/paragraph/bullet" shape that
+// parseLines() already expects from the xlsx/PDF paths, so all the same
+// label-matching and bullet-cleanup logic applies unchanged.
+function htmlToLines(html) {
+  const root = parseHtml(html);
+  const lines = [];
+
+  function walk(node) {
+    if (!node || node.nodeType !== 1) return; // element nodes only
+    const tag = (node.rawTagName || '').toLowerCase();
+
+    if (tag === 'table') {
+      // Sherly's structured intake form is a two-column label/value table —
+      // join each row's cells with a tab, matching how the xlsx path turns
+      // spreadsheet rows into lines (so "Job Title" and its answer land on
+      // the same line for matchLabelAtStart to recognize).
+      node.querySelectorAll('tr').forEach((tr) => {
+        const cells = tr.querySelectorAll('td, th').map((c) => c.text.trim());
+        const line = cells.join('\t');
+        if (line.trim()) lines.push(line);
+      });
+      return;
+    }
+
+    if (tag === 'li') {
+      const text = node.text.trim();
+      if (text) lines.push('• ' + text);
+      return;
+    }
+
+    if (tag === 'p' || /^h[1-6]$/.test(tag)) {
+      const text = node.text.trim();
+      if (text) lines.push(text);
+      return;
+    }
+
+    // Container element (div, ul, ol, body, etc.) — recurse in document order.
+    node.childNodes.forEach(walk);
+  }
+
+  walk(root);
+  return lines;
+}
+
+async function parseDocx(buffer) {
+  const { value: html } = await mammoth.convertToHtml({ buffer });
+  const lines = htmlToLines(html);
+  return parseLines(lines);
+}
+
 async function extractPdfLines(buffer) {
   const pdfjsLib = await getPdfjs();
   const data = new Uint8Array(buffer);
@@ -401,7 +456,17 @@ async function parseJobFile(buffer, filename) {
   if (ext === 'pdf') {
     return parsePdf(buffer);
   }
-  throw new Error('Unsupported file format. Please upload a .xlsx or .pdf file.');
+  if (ext === 'docx') {
+    return parseDocx(buffer);
+  }
+  if (ext === 'doc') {
+    // The old binary .doc format (pre-2007 Word) isn't something mammoth —
+    // or most modern JS libraries — can read; only the newer .docx (OOXML)
+    // format is supported. Give a clear next step instead of a confusing
+    // crash: Word itself can re-save a .doc as .docx in a couple of clicks.
+    throw new Error('Old .doc format is not supported — please re-save the file as .docx in Word (File > Save As > Word Document (.docx)) and upload that instead.');
+  }
+  throw new Error('Unsupported file format. Please upload a .xlsx, .docx, or .pdf file.');
 }
 
 module.exports = { parseJobFile, parseLines, FIELD_DEFS };
