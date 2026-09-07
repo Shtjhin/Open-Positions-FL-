@@ -590,29 +590,29 @@ function renderJobEditFields(prefix, job = {}) {
         </select>
       </div>
       <div class="field">
-        <label>Salary Range</label>
-        <div class="input-row salary-row">
-          ${(() => {
-            const parsed = parseSalaryRange(job.salaryRange);
-            return `
-            <select id="${prefix}_salaryCurrency">
-              ${['Rp', 'USD', 'SGD', 'Other'].map((c) => `<option value="${c}" ${parsed.currency === c ? 'selected' : ''}>${c}</option>`).join('')}
-            </select>
-            <input id="${prefix}_salaryMin" value="${escapeHtml(parsed.min)}" placeholder="Min, e.g. 15.000.000" inputmode="numeric" />
-            <span class="range-sep">-</span>
-            <input id="${prefix}_salaryMax" value="${escapeHtml(parsed.max)}" placeholder="Max, e.g. 20.000.000" inputmode="numeric" />
-          `;
-          })()}
-          <select id="${prefix}_salaryType">
-            <option value="">Type</option>
-            <option value="Nett" ${job.salaryType === 'Nett' ? 'selected' : ''}>Nett</option>
-            <option value="Gross" ${job.salaryType === 'Gross' ? 'selected' : ''}>Gross</option>
-          </select>
-        </div>
-      </div>
-      <div class="field">
         <label>Industry (type your own or pick a suggestion)</label>
         <input id="${prefix}_industry" list="industryOptions" value="${escapeHtml(job.industry || '')}" placeholder="e.g. Technology / IT / Software" />
+      </div>
+    </div>
+    <div class="field">
+      <label>Salary Range</label>
+      <div class="input-row salary-row">
+        ${(() => {
+          const parsed = parseSalaryRange(job.salaryRange);
+          return `
+          <select id="${prefix}_salaryCurrency">
+            ${['Rp', 'USD', 'SGD', 'Other'].map((c) => `<option value="${c}" ${parsed.currency === c ? 'selected' : ''}>${c}</option>`).join('')}
+          </select>
+          <input id="${prefix}_salaryMin" value="${escapeHtml(parsed.min)}" placeholder="Min, e.g. 15.000.000" inputmode="numeric" />
+          <span class="range-sep">-</span>
+          <input id="${prefix}_salaryMax" value="${escapeHtml(parsed.max)}" placeholder="Max, e.g. 20.000.000" inputmode="numeric" />
+        `;
+        })()}
+        <select id="${prefix}_salaryType">
+          <option value="">Type</option>
+          <option value="Nett" ${job.salaryType === 'Nett' ? 'selected' : ''}>Nett</option>
+          <option value="Gross" ${job.salaryType === 'Gross' ? 'selected' : ''}>Gross</option>
+        </select>
       </div>
     </div>
     <div class="field">
