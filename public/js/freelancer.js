@@ -83,7 +83,6 @@ async function openJobDetail(id) {
     <div class="grid-2">
       <div class="detail-row"><div class="k">Department</div><div class="v">${escapeHtml(job.department || '-')}</div></div>
       <div class="detail-row"><div class="k">Direct Report To</div><div class="v">${escapeHtml(job.directReportTo || '-')}</div></div>
-      <div class="detail-row"><div class="k">Position in Org Structure Chart</div><div class="v">${escapeHtml(job.orgStructurePosition || '-')}</div></div>
       <div class="detail-row"><div class="k">Position Type</div><div class="v">${escapeHtml(job.positionType || '-')}</div></div>
       <div class="detail-row"><div class="k">Placement</div><div class="v">${escapeHtml(job.placement || '-')}</div></div>
       <div class="detail-row"><div class="k">Office Hours</div><div class="v">${escapeHtml(job.officeHours || '-')}</div></div>

@@ -252,7 +252,6 @@ function fillPreviewForm(data) {
   document.getElementById('f_jobTitle').value = f.jobTitle || '';
   document.getElementById('f_department').value = f.department || '';
   document.getElementById('f_directReportTo').value = f.directReportTo || '';
-  document.getElementById('f_orgStructurePosition').value = f.orgStructurePosition || '';
   setSelectValue('f_positionType', f.positionType);
   document.getElementById('f_placement').value = f.placement || '';
   document.getElementById('f_officeHours').value = f.officeHours || '';
@@ -311,7 +310,6 @@ async function handleSaveJob() {
     jobTitle: document.getElementById('f_jobTitle').value.trim(),
     department: document.getElementById('f_department').value.trim(),
     directReportTo: document.getElementById('f_directReportTo').value.trim(),
-    orgStructurePosition: document.getElementById('f_orgStructurePosition').value.trim(),
     positionType: document.getElementById('f_positionType').value,
     placement: document.getElementById('f_placement').value.trim(),
     officeHours: document.getElementById('f_officeHours').value.trim(),
@@ -449,10 +447,6 @@ function renderJobEditFields(prefix, job = {}) {
         <input id="${prefix}_directReportTo" value="${escapeHtml(job.directReportTo || '')}" />
       </div>
       <div class="field">
-        <label>Position in Org Structure Chart</label>
-        <input id="${prefix}_orgStructurePosition" value="${escapeHtml(job.orgStructurePosition || '')}" />
-      </div>
-      <div class="field">
         <label>Position Type</label>
         <select id="${prefix}_positionType">
           ${['Full Time', 'Contract', 'Part Time', 'Project Based'].map((o) => `<option value="${o}" ${job.positionType === o ? 'selected' : ''}>${o}</option>`).join('')}
@@ -513,7 +507,6 @@ function readJobEditFields(prefix) {
     jobTitle: document.getElementById(`${prefix}_jobTitle`).value.trim(),
     department: document.getElementById(`${prefix}_department`).value.trim(),
     directReportTo: document.getElementById(`${prefix}_directReportTo`).value.trim(),
-    orgStructurePosition: document.getElementById(`${prefix}_orgStructurePosition`).value.trim(),
     positionType: document.getElementById(`${prefix}_positionType`).value,
     placement: document.getElementById(`${prefix}_placement`).value.trim(),
     officeHours: document.getElementById(`${prefix}_officeHours`).value.trim(),
