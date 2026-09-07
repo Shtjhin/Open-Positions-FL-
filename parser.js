@@ -35,6 +35,43 @@ function norm(s) {
   return (s || '').toString().toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
+// Fields that should always come out as one clean point per line (Job
+// Description, Job Requirements, Preferred Skills, Special Requirements).
+// Source files are messy in practice: bullets get flattened onto a single
+// row by Excel/PDF export, use inconsistent markers (-, *, •, "1.", "a)"),
+// or mix extra whitespace. This normalizes all of that into tidy lines so
+// the admin doesn't have to manually clean it up before it hits the form.
+const BULLET_MARKER = /^[\s]*[-*•●▪‣·○]\s*/;
+const NUMBER_MARKER = /^[\s]*\(?\d{1,2}[.).]\s+/;
+const LETTER_MARKER = /^[\s]*\(?[a-zA-Z][.).]\s+/;
+// Matches a bullet/number/letter marker that starts a new point mid-line —
+// only where it's preceded by the start of the line or a run of 2+ spaces
+// (the tell-tale sign of a flattened column/bullet break from Excel or PDF
+// export), so an ordinary " - " or "5+ years" inside a sentence is left alone.
+const INLINE_MARKER_SPLIT = /(?=(?:^|\s{2,})(?:[-*•●▪‣·○]\s*|\(?\d{1,2}[.).]\s+|\(?[a-zA-Z][.).]\s+))/g;
+
+function stripBulletMarker(line) {
+  return line.replace(BULLET_MARKER, '').replace(NUMBER_MARKER, '').replace(LETTER_MARKER, '').trim();
+}
+
+function cleanBulletText(raw) {
+  if (!raw) return '';
+  const points = [];
+  for (const rawLine of raw.replace(/\r/g, '').split('\n')) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    // A single physical line sometimes contains several bullets that got
+    // stitched together (common with PDF text extraction) — split those
+    // back apart wherever another bullet marker appears mid-line.
+    const segments = line.split(INLINE_MARKER_SPLIT).map((s) => s.trim()).filter(Boolean);
+    for (const seg of segments.length > 1 ? segments : [line]) {
+      const cleaned = stripBulletMarker(seg);
+      if (cleaned) points.push(cleaned);
+    }
+  }
+  return points.join('\n');
+}
+
 // Cari label mana (kalau ada) yang jadi awal dari sebuah baris teks, misal
 // baris "Job Title : General Manager" -> cocok dengan label "job title".
 function matchLabelAtStart(lineNorm) {
@@ -154,6 +191,12 @@ function parseLines(lines) {
         .trim();
     }
   }
+
+  // Normalize the four long-text fields into one clean point per line.
+  result.job_description = cleanBulletText(result.job_description);
+  result.job_requirements = cleanBulletText(result.job_requirements);
+  result.preferred_skills = cleanBulletText(result.preferred_skills);
+  result.special_requirements = cleanBulletText(result.special_requirements);
 
   // Additional Notes is intentionally left blank after parsing — Sherly fills
   // this one in manually for every job, so whatever the source file has under
