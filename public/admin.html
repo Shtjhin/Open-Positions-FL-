@@ -176,6 +176,7 @@
         </div>
       </div>
 
+      <button class="secondary" id="previewJobBtn">Preview</button>
       <button id="saveJobBtn">Save Job</button>
       <button class="secondary" id="cancelUploadBtn">Cancel</button>
     </div>
@@ -232,6 +233,22 @@
       <button class="close-x" id="closeDetailBtn">&times;</button>
     </div>
     <div id="detailBody"></div>
+  </div>
+</div>
+
+<!-- New job preview modal (shown before saving) -->
+<div class="modal-overlay" id="previewModal" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="previewTitle"></h2>
+      <button class="close-x" id="closePreviewBtn">&times;</button>
+    </div>
+    <p class="hint" style="margin-top:0">Preview &mdash; this is how the job will look to freelancers. Nothing is saved yet.</p>
+    <div id="previewBody"></div>
+    <div style="margin-top:16px">
+      <button id="previewSaveBtn">Save Job</button>
+      <button class="secondary" id="previewBackBtn">Back to Edit</button>
+    </div>
   </div>
 </div>
 
