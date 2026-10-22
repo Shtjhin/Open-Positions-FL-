@@ -81,6 +81,10 @@ async function init() {
   document.getElementById('parseTextBtn').onclick = handleParseText;
   document.getElementById('cancelUploadBtn').onclick = resetUploadForm;
   document.getElementById('saveJobBtn').onclick = handleSaveJob;
+  document.getElementById('previewJobBtn').onclick = handlePreviewJob;
+  document.getElementById('closePreviewBtn').onclick = closePreviewModal;
+  document.getElementById('previewBackBtn').onclick = closePreviewModal;
+  document.getElementById('previewSaveBtn').onclick = () => { closePreviewModal(); handleSaveJob(); };
 
   document.getElementById('addFreelancerBtn').onclick = handleAddFreelancer;
   document.getElementById('closeDetailBtn').onclick = () => { document.getElementById('detailModal').style.display = 'none'; };
@@ -366,9 +370,9 @@ function resetUploadForm() {
   lastParsedPreview = null;
 }
 
-async function handleSaveJob() {
-  const errBox = document.getElementById('uploadErr');
-  errBox.innerHTML = '';
+// Reads the review form into the job payload. Shared by Save and Preview so
+// both always work from exactly the same data.
+function buildJobPayload() {
   const assign = readAssignControls('f');
   const payload = {
     jobTitle: document.getElementById('f_jobTitle').value.trim(),
@@ -394,6 +398,13 @@ async function handleSaveJob() {
     status: document.getElementById('f_status').value,
     sourceFilename: lastParsedPreview ? lastParsedPreview.sourceFilename : null,
   };
+  return payload;
+}
+
+async function handleSaveJob() {
+  const errBox = document.getElementById('uploadErr');
+  errBox.innerHTML = '';
+  const payload = buildJobPayload();
   if (!payload.jobTitle) {
     errBox.innerHTML = '<div class="error-msg">Job Title is required.</div>';
     return;
@@ -406,6 +417,46 @@ async function handleSaveJob() {
   } catch (e) {
     errBox.innerHTML = `<div class="error-msg">${escapeHtml(e.message)}</div>`;
   }
+}
+
+// ---------- PREVIEW (before saving a new job) ----------
+// Shows the job exactly the way a freelancer will see it (same renderer as
+// freelancer.js), built from whatever is currently in the review form —
+// including unsaved edits — so Sherly can check it before it goes live.
+function handlePreviewJob() {
+  const errBox = document.getElementById('uploadErr');
+  errBox.innerHTML = '';
+  const job = buildJobPayload();
+  if (!job.jobTitle) {
+    errBox.innerHTML = '<div class="error-msg">Job Title is required.</div>';
+    return;
+  }
+  document.getElementById('previewTitle').textContent = job.jobTitle;
+
+  let assignText = 'Not assigned yet';
+  if (job.assignedToAll) assignText = 'All Freelancers';
+  else if (job.assignedTo) {
+    const sel = document.getElementById('f_assignedTo');
+    const opt = sel && sel.options[sel.selectedIndex];
+    assignText = opt ? opt.textContent : 'Selected Freelancer';
+  }
+
+  document.getElementById('previewBody').innerHTML = `
+    ${renderJobFieldsHtml(job, { jobCode: '(assigned automatically when saved)' })}
+    <div class="field" style="margin-top:16px">
+      <label>Status</label>
+      <div class="v"><span class="badge ${job.status}">${job.status === 'open' ? 'Open' : 'Closed'}</span></div>
+    </div>
+    <div class="field">
+      <label>Assigned To</label>
+      <div class="v">${escapeHtml(assignText)}</div>
+    </div>
+  `;
+  document.getElementById('previewModal').style.display = 'flex';
+}
+
+function closePreviewModal() {
+  document.getElementById('previewModal').style.display = 'none';
 }
 
 // ---------- BULLET EDITOR (Job Description / Requirements / Skills / Special Requirements) ----------

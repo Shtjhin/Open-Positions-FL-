@@ -117,3 +117,32 @@ function formatSalaryDisplay(raw) {
   const { currency, min, max } = parseSalaryRange(raw);
   return composeSalaryText(currency, min, max) || raw.trim();
 }
+
+// ---------- JOB DETAIL RENDERING ----------
+// The read-only layout of a job's fields, as a freelancer sees it. Shared by
+// freelancer.js (the real detail modal) and admin.js (the "Preview" shown
+// before a new job is saved), so what Sherly previews is exactly what gets
+// shown to freelancers — formatting included.
+function renderJobFieldsHtml(job, opts = {}) {
+  const jobCode = opts.jobCode || job.jobCode || '-';
+  return `
+    <div class="detail-row"><div class="k">Job Code</div><div class="v">${escapeHtml(jobCode)}</div></div>
+    <div class="grid-2">
+      <div class="detail-row"><div class="k">Department</div><div class="v">${escapeHtml(job.department || '-')}</div></div>
+      <div class="detail-row"><div class="k">Direct Report To</div><div class="v">${escapeHtml(job.directReportTo || '-')}</div></div>
+      <div class="detail-row"><div class="k">Position Type</div><div class="v">${escapeHtml(job.positionType || '-')}</div></div>
+      <div class="detail-row"><div class="k">Placement</div><div class="v">${escapeHtml(job.placement || '-')}</div></div>
+      <div class="detail-row"><div class="k">Office Hours</div><div class="v">${escapeHtml(job.officeHours || '-')}</div></div>
+      <div class="detail-row"><div class="k">Working Days</div><div class="v">${escapeHtml(job.workingDays || '-')}</div></div>
+      <div class="detail-row"><div class="k">Travel Required</div><div class="v">${escapeHtml(job.travelRequired || '-')}</div></div>
+      <div class="detail-row"><div class="k">Salary Range</div><div class="v">${escapeHtml(formatSalaryDisplay(job.salaryRange) || '-')}${job.salaryType ? ` <span class="hint">(${escapeHtml(job.salaryType)})</span>` : ''}</div></div>
+      <div class="detail-row"><div class="k">Industry</div><div class="v">${escapeHtml(job.industry || '-')}</div></div>
+    </div>
+    <div class="detail-row"><div class="k">Additional Notes</div><div class="v">${escapeHtml(job.additionalNotes || '-')}</div></div>
+    <div class="detail-row"><div class="k">Job Overview</div><div class="v">${escapeHtml(job.jobOverview || '-')}</div></div>
+    <div class="detail-row"><div class="k">Job Description</div>${renderBullets(job.jobDescription)}</div>
+    <div class="detail-row"><div class="k">Job Requirements</div>${renderBullets(job.jobRequirements)}</div>
+    <div class="detail-row"><div class="k">Preferred Skills</div>${renderBullets(job.preferredSkills)}</div>
+    <div class="detail-row"><div class="k">Special Requirements</div>${renderBullets(job.specialRequirements)}</div>
+  `;
+}
